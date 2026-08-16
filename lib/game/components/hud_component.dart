@@ -56,9 +56,13 @@ class HudComponent extends PositionComponent
   double _scorePulse = 0;
   double _comboPulse = 0;
 
-  /// Drives the one-frame channel offset on error. This, and the combo
-  /// tier-up misregistration, are the entire experimentation budget for the
-  /// play field.
+  /// Drives the channel offset on error.
+  ///
+  /// Widened and slowed on 2026-08-17: at a 3px offset decaying in 167ms it
+  /// was imperceptible, which meant the play field's whole experimentation
+  /// budget was being spent on feedback nobody could see. A misroute is the
+  /// single most important thing to communicate — Gate 3 approved play-field
+  /// effects that carry information, and this carries the most.
   double _glitch = 0;
 
   void pulseScore() => _scorePulse = 1;
@@ -79,7 +83,7 @@ class HudComponent extends PositionComponent
       if (_comboPulse < 0) _comboPulse = 0;
     }
     if (_glitch > 0) {
-      _glitch -= dt * 6;
+      _glitch -= dt * 2.5;
       if (_glitch < 0) _glitch = 0;
     }
   }
@@ -98,7 +102,7 @@ class HudComponent extends PositionComponent
         '${score.score}',
         scoreStyle.copyWith(color: Tokens.warn.withValues(alpha: 0.8)),
       );
-      ghost.paint(canvas, Offset(16 + _glitch * 3, 10));
+      ghost.paint(canvas, Offset(16 + _glitch * 14, 10 - _glitch * 3));
     }
 
     final scoreText = _scoreText.layout('${score.score}', scoreStyle);

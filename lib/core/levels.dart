@@ -249,10 +249,12 @@ final LevelConfig kEndlessShift = LevelConfig(
     PackageSpec(shape: PackageShape.circle, colorIndex: 1),
     PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
   ],
-  // Starting values only. The curve owns these from the first sort onward.
-  readWindow: 4.0,
-  spawnInterval: 2.4,
-  maxActive: 1,
+  // Starting values only: the curve owns these from the first sort onward,
+  // and it opens at level 9's pace rather than warming up through ground the
+  // player has already covered.
+  readWindow: EndlessCurve.openingReadWindow,
+  spawnInterval: EndlessCurve.openingSpawnInterval,
+  maxActive: 5,
   mistakeLimit: 3,
   passCondition: const Survive(),
   chaosRate: 0.20,

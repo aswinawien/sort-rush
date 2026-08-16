@@ -45,6 +45,10 @@ class HomeScreen extends StatelessWidget {
                       level: level,
                       onTap: () => _startLevel(context, level),
                     ),
+                  const SizedBox(height: 22),
+                  _EndlessRow(
+                    onTap: () => _startLevel(context, kEndlessShift),
+                  ),
                   const Spacer(flex: 3),
                 ],
               ),
@@ -113,6 +117,52 @@ class _PunchInButton extends StatelessWidget {
             fontWeight: FontWeight.w700,
             letterSpacing: 3,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The way into endless.
+///
+/// Set apart from the numbered shifts rather than listed among them: it is a
+/// different mode, not an eleventh lesson, and the product brief unlocks it
+/// after onboarding. There is no persistence yet to gate on, so it is visible
+/// from the start — recorded as interim in docs/decision-log.md.
+class _EndlessRow extends StatelessWidget {
+  const _EndlessRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 56),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Tokens.acid, width: 2),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    kEndlessShift.title,
+                    style: Tokens.body.copyWith(color: Tokens.acid),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text('NO QUOTA · NO END', style: Tokens.label),
+                ],
+              ),
+            ),
+            Text('▸', style: Tokens.label.copyWith(color: Tokens.acid)),
+          ],
         ),
       ),
     );

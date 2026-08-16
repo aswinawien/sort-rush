@@ -64,8 +64,12 @@ class RunTuning {
         curve == null ? level.readWindow : curve.readWindowAt(pressure);
     final baseSpawnInterval =
         curve == null ? level.spawnInterval : curve.spawnIntervalAt(pressure);
-    final baseMaxActive =
-        curve == null ? level.maxActive : curve.maxActiveAt(pressure);
+    // A curved level does not set this: how many packages are in flight is
+    // `readWindow / spawnInterval`, so density is what the timing produces,
+    // not a separate number. The old curve carried an `A(P)` that could reach
+    // five while the fairness floors made three the arithmetic maximum — a
+    // dial that never bound. The ceiling below is the only cap left.
+    final baseMaxActive = curve == null ? level.maxActive : maxActiveCeiling;
 
     final chaos = _clampDouble(level.chaosRate + modifiers.chaosRate, 0, 1);
 

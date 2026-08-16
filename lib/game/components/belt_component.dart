@@ -31,6 +31,7 @@ class BeltComponent extends PositionComponent
         ),
         package.spec,
         isActive: identical(package, front),
+        isUnstable: package.isUnstable,
       );
     }
   }

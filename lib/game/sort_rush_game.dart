@@ -150,11 +150,10 @@ class SortRushGame extends FlameGame {
         case PackageDroppedEvent():
           _hud.glitch();
         case PackageMorphedEvent():
-          // The corrupted state and the changed silhouette are both drawn
-          // from package state by BeltComponent each frame, so nothing
-          // one-shot is needed here yet. The punctuation lands with the
-          // effects work, not with the mechanic.
-          break;
+          // The corrupted state is drawn from `ActivePackage.isUnstable` by
+          // BeltComponent; this punctuates the instant it resolves, so the
+          // change is felt and not merely noticed.
+          _hud.glitch();
         case ComboAdvancedEvent():
           _hud.pulseCombo();
         case RunEndedEvent():

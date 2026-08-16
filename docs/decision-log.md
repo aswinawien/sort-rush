@@ -449,3 +449,39 @@ Record decisions as append-only entries.
 - Decision: All four rejected. Any of them can return, but only by reopening the specific approved decision it contradicts.
 - Consequences: The control model, the one-verb input rule, the no-flashing accessibility rule and the no-persistence rule are all load-bearing for more than these four ideas, so reopening any of them is a larger decision than the feature that prompted it.
 - Owner/gate: human — Gate 4.
+
+### 2026-08-17 — D-02: compound chutes rendered identically
+
+- Status: approved (human gate, 2026-08-17) — fixed same day
+- Context: Found by the human looking at a screenshot of endless, not by the test suite. Two chutes appeared as identical bare circles.
+- Evidence: `PackagePainter.paintBinIdentity` drew the silhouette and **returned**, so a `BinSpec` carrying both a shape and a pattern never drew the pattern. `CompoundRouting` produces exactly that: its chutes are built with both. Levels 8, 9 and endless all shipped with chutes A and B visually indistinguishable while the routing rule told them apart by hue.
+- Severity: **P1**. The routing rule decides where a package belongs; the chute's face is the only way the player learns that rule. Two chutes that look the same while accepting different packages make every misroute between them unexplainable, which `docs/level-spec.md` names as the thing that must never happen. Nothing crashed, so not P0 — but the affected levels were unwinnable by understanding rather than by luck.
+- Why 211 tests missed it: they assert what `binFor` returns and that a `BinSpec` carries a shape *or* a pattern. Nothing asserted that two chutes look different. The chute-boundary tests check hit areas, not appearance. **This is the second P1 in this project found by looking at the game rather than by running the suite** — the first was the HUD drawing under the Android status bar.
+- Options considered: (a) draw the pattern inside the silhouette when both are present; (b) drop the shape on compound chutes and show pattern only; (c) drop the pattern and distinguish compound chutes some other way.
+- Decision: Option (a). A compound chute's identity *is* both attributes — "circle, hatched" — so drawing both is the honest rendering and it matches how packages themselves are drawn.
+- Consequences: `test/game/bin_identity_test.dart` renders each chute to an image and asserts every chute of every level differs from its neighbours pixel-for-pixel. The guard was verified against the broken code before being kept: two of its three tests fail without the fix. That check matters here, because an earlier `DAMAGED` test passed happily while the mechanic did nothing at all — a test that cannot fail is not a test.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — D-03: the `DAMAGED` telegraph was never drawn
+
+- Status: approved (human gate, 2026-08-17) — fixed same day
+- Context: Found while auditing the play field after a player asked where the glitch effects were.
+- Evidence: Nothing anywhere in `lib/game/` read `ActivePackage.isUnstable` or `PackageSpec.stamp`. A corrupting package rendered exactly like a clean one until the instant it morphed. Worse, a comment in `lib/game/sort_rush_game.dart` asserted the opposite — that the corrupted state was "drawn from package state by BeltComponent each frame" — so the code claimed a guarantee it did not provide.
+- Severity: **P1**. The entire `DAMAGED` mechanic rests on the player seeing the corrupted state and choosing to hold their tap. That is what makes it randomness resolving *before* a decision rather than after, and it is the sole argument the mechanic was approved on. Rendered invisibly, it was exactly the silent shape-shift rejected on 2026-08-16 — the shipped behaviour was the option the gate turned down.
+- Options considered: (a) draw a corrupted state on the package; (b) drop the telegraph and accept a silent morph; (c) remove `DAMAGED` from the curated levels.
+- Decision: Option (a). A warning-coloured ghost offset behind the package like a mistracked print head, plus fixed tear bands and a displaced slab across the label, and a warn-coloured outline. Positions are static rather than randomised per frame — a package that jittered every tick would be a strobe, which `docs/design-system.md` forbids. The morph itself now punctuates through `PackageMorphedEvent`, which previously did nothing.
+- Consequences: `test/game/corrupted_package_test.dart` renders packages and asserts a corrupting one differs from a clean one, remains distinguishable while it is also the active package, does not look like selection, is stable frame to frame, and works for all three shapes. **The guard was verified against the broken code before being kept: three of its five tests fail without the fix.** That check is now standard practice here, because this is the third time a test in this project has passed while the thing it claimed to cover did nothing.
+- **This is the third P1 found by looking at the game rather than by running the suite** — after the HUD drawing under the Android status bar, and compound chutes rendering identically. All three were invisible to automated testing by construction. The pattern is worth naming: the suite proves the rules are right, and only playing proves the game is.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — The endless curve escalates in two phases
+
+- Status: approved (human gate, 2026-08-17)
+- Context: Endless opened at a 4.0s read window and a 2.4s spawn gap while level 9 — the shift immediately before it — ended at 2.2 and 1.1. It took roughly sixty sorts, around ninety seconds, to climb back to where onboarding had already left the player.
+- Evidence:
+  - **`docs/level-spec.md` contradicts itself.** It states difficulty must escalate "by compressing `S` toward its floor **before** compressing `T`", then gives formulas that compress both simultaneously. Their ratio therefore stayed near-constant and density never changed across an entire run.
+  - **`A(P) = min(5, ...)` was a dial that never bound.** Packages in flight is `readWindow / spawnInterval`; at the fairness floors that is `floor(1.20 / 0.65) + 1 = 2`, and the old curve's most favourable point gave 3. Reaching five would have needed a 0.24s spawn interval at a 1.20s read window, far below the floor. The curve promised five and the arithmetic allowed two.
+- Options considered: (a) shift the entry point only, leaving the formulas; (b) two phases in the order the spec already states; (c) leave it.
+- Decision: Option (b). Phase one closes the spawn gap from 1.10 to 0.65 while the read window holds at 2.60, so the belt crowds. Phase two holds the spawn gap and closes the read window from 2.60 to 1.20, so the reading time collapses. `A(P)` is dropped entirely; `RunTuning.maxActiveCeiling` remains as the only cap.
+- Consequences: **Phase one is a queue problem and phase two is a reaction problem** — a genuinely different second half rather than the same half played faster, which is what the spec's escalation rule was describing all along. Endless now opens at level 9's spawn interval instead of half its difficulty. Maximum pressure arrives in roughly 95–110s against the spec's stated ~130s. The numbers remain unmeasured first-pass guesses like the rest of that table. `docs/level-spec.md` needs its formulas replaced on approval; the old ones are superseded, not merely edited.
+- Owner/gate: human — Gate 4.

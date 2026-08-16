@@ -72,6 +72,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   LevelConfig? get _nextLevel {
+    // Endless has no next shift, and its id of 0 would otherwise resolve to
+    // shift 1 and offer to send the player back to the tutorial.
+    if (widget.summary.endless) {
+      return null;
+    }
     final nextId = widget.summary.levelId + 1;
     for (final level in kCuratedLevels) {
       if (level.id == nextId) {

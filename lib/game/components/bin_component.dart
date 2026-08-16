@@ -52,14 +52,14 @@ class BinComponent extends PositionComponent
   void update(double dt) {
     super.update(dt);
     if (_flash > 0) {
-      _flash -= dt * 5;
+      _flash -= dt * 2.5;
       if (_flash < 0) _flash = 0;
     } else if (_flash < 0) {
-      _flash += dt * 5;
+      _flash += dt * 2.5;
       if (_flash > 0) _flash = 0;
     }
     if (_shake > 0) {
-      _shake -= dt * 6;
+      _shake -= dt * 3;
       if (_shake < 0) _shake = 0;
     }
   }
@@ -112,8 +112,9 @@ class BinComponent extends PositionComponent
 
     canvas.save();
     if (_shake > 0) {
-      // 6px at full strength, per docs/design-spec.md §5.2.
-      canvas.translate(_shake * 6 * (_shake > 0.5 ? 1 : -1), 0);
+      // A misroute has to be felt. The spec's 6px was set before anything
+      // ran on a real screen and read as no movement at all.
+      canvas.translate(_shake * 16 * (_shake > 0.5 ? 1 : -1), 0);
     }
 
     final body = RRect.fromRectAndRadius(
@@ -127,7 +128,7 @@ class BinComponent extends PositionComponent
         _bodyPaint
           ..style = PaintingStyle.fill
           ..color = (_flash > 0 ? Tokens.acid : Tokens.warn)
-              .withValues(alpha: 0.22 * _flash.abs()),
+              .withValues(alpha: 0.45 * _flash.abs()),
       );
     }
 

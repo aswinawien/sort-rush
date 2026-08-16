@@ -76,16 +76,35 @@ abstract final class PackagePainter {
     Rect rect,
     PackageSpec spec, {
     required bool isActive,
+    bool isUnstable = false,
   }) {
     final path = shapePath(spec.shape, rect);
+
+    // The corrupted state, drawn *behind* the package: a warning-coloured
+    // ghost offset like a mistracked print head. This is the whole `DAMAGED`
+    // mechanic — the player is meant to see this and hold their tap until the
+    // package settles. Without it the shape-shift is silent, which is the
+    // version that was rejected for punishing a decision already committed to.
+    if (isUnstable) {
+      canvas.drawPath(
+        shapePath(spec.shape, rect.translate(-3.5, 0)),
+        Paint()..color = Tokens.warn.withValues(alpha: 0.55),
+      );
+    }
+
     fillPattern(canvas, path, Tokens.hues[spec.colorIndex], spec.pattern);
+
+    if (isUnstable) {
+      _paintTear(canvas, path, rect);
+    }
 
     canvas.drawPath(
       path,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = isActive ? 3.5 : 1.5
-        ..color = isActive ? Tokens.acid : Tokens.paper,
+        ..color =
+            isUnstable ? Tokens.warn : (isActive ? Tokens.acid : Tokens.paper),
     );
 
     if (isActive) {
@@ -99,6 +118,34 @@ abstract final class PackagePainter {
     }
   }
 
+  /// Horizontal tear bands across a corrupting package.
+  ///
+  /// Positions are fixed rather than random per frame. A package that jitters
+  /// every tick would be a strobe, which `docs/design-system.md` forbids —
+  /// this has to read as damage while staying still enough to look at.
+  static void _paintTear(Canvas canvas, Path path, Rect rect) {
+    canvas.save();
+    canvas.clipPath(path);
+    final paint = Paint()
+      ..color = Tokens.warn.withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill;
+    for (final at in const [0.24, 0.42, 0.63, 0.81]) {
+      final y = rect.top + rect.height * at;
+      canvas.drawRect(Rect.fromLTWH(rect.left, y, rect.width, 2.5), paint);
+    }
+    // A displaced slab, as though one band of the label slipped.
+    canvas.drawRect(
+      Rect.fromLTWH(
+        rect.left + 6,
+        rect.top + rect.height * 0.46,
+        rect.width,
+        rect.height * 0.13,
+      ),
+      Paint()..color = Tokens.ink.withValues(alpha: 0.75),
+    );
+    canvas.restore();
+  }
+
   /// Draws the identity swatch on a bin: a silhouette for shape-routed levels,
   /// a pattern swatch for colour-routed ones. Never an identifying fill colour.
   static void paintBinIdentity(
@@ -108,8 +155,17 @@ abstract final class PackagePainter {
     FillPattern? pattern,
   }) {
     if (shape != null) {
+      final path = shapePath(shape, rect);
+      // A compound chute carries both, and both have to be drawn. Returning
+      // after the silhouette left two chutes on levels 8, 9 and endless
+      // rendering as identical outlines while the routing rule told them
+      // apart by pattern — the player was being asked to sort by an attribute
+      // the destination never showed. See docs/decision-log.md, "D-02".
+      if (pattern != null) {
+        fillPattern(canvas, path, Tokens.paper, pattern);
+      }
       canvas.drawPath(
-        shapePath(shape, rect),
+        path,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5

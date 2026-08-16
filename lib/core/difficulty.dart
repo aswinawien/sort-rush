@@ -8,54 +8,70 @@ abstract class DifficultyCurve {
 
   double readWindowAt(int pressure);
   double spawnIntervalAt(int pressure);
-  int maxActiveAt(int pressure);
 }
 
-/// The endless curve from `docs/level-spec.md`.
+/// The endless curve.
+///
+/// Two phases, in the order `docs/level-spec.md` actually asks for: *"escalate
+/// by compressing `S` toward its floor **before** compressing `T` — taking
+/// away the read window is what makes a game feel unfair, while taking away
+/// recovery time is what makes it feel fast."*
 ///
 /// ```
-/// S(P) = max(0.65, 2.4 - 0.020P)   spawn interval, floors at P = 87
-/// T(P) = max(1.20, 4.0 - 0.030P)   read window,    floors at P = 93
-/// A(P) = min(5,    1 + P ~/ 18)    packages at once
-/// M    = 3                         fixed for the whole run
+/// Phase 1  P 0  → 38    S: 1.10 → 0.65   T holds 2.60
+/// Phase 2  P 38 → 130   S holds 0.65     T: 2.60 → 1.20
 /// ```
 ///
-/// `P` is the pressure index — correct sorts, which never decrease. Failure
-/// ends a run rather than easing it, so the curve only ever tightens and stays
-/// legible.
+/// The arc that produces: **the belt crowds first, then the reading time
+/// collapses.** How many packages are in flight is `readWindow / spawnInterval`
+/// — so compressing the spawn gap while holding the read window is the only
+/// thing that actually fills the belt. Phase one is a queue problem; phase two
+/// is a reaction problem. That is a genuinely different second half rather than
+/// the same half played faster.
 ///
-/// Note what the two floors mean together: difficulty escalates by compressing
-/// the spawn interval toward its floor *before* the read window, because
-/// taking away the read window is what makes a game feel unfair while taking
-/// away recovery time is what makes it feel fast.
+/// The original single-phase curve compressed both at once, which held their
+/// ratio near-constant and meant density never changed for the entire run — and
+/// it opened far easier than level 9, taking around sixty sorts to climb back
+/// to where onboarding had already left the player. Recorded in
+/// `docs/decision-log.md`.
 class EndlessCurve extends DifficultyCurve {
   const EndlessCurve();
 
-  /// Below these the curve stops tightening. `RunTuning` clamps to the same
-  /// values regardless — this is the curve declining to ask, rather than the
-  /// clamp having to refuse.
+  /// Where endless begins: level 9's spawn interval, and a read window a
+  /// little longer so the belt has room to crowd before it tightens.
+  static const double openingSpawnInterval = 1.10;
+  static const double openingReadWindow = 2.60;
+
+  /// Below these the curve stops asking. `RunTuning` clamps to the same values
+  /// regardless — this is the curve declining rather than the clamp refusing.
   static const double spawnIntervalFloor = 0.65;
   static const double readWindowFloor = 1.20;
-  static const int maxActiveCeiling = 5;
 
-  /// Sorts per additional package on the belt.
-  static const int activeStep = 18;
+  /// Where the spawn gap bottoms out and the read window starts to give.
+  static const int phaseOneEnd = 38;
+
+  /// Where the read window reaches its floor and the curve stops moving.
+  static const int phaseTwoEnd = 130;
 
   @override
   double spawnIntervalAt(int pressure) {
-    final value = 2.4 - 0.020 * pressure;
-    return value < spawnIntervalFloor ? spawnIntervalFloor : value;
+    if (pressure >= phaseOneEnd) {
+      return spawnIntervalFloor;
+    }
+    final t = pressure / phaseOneEnd;
+    return openingSpawnInterval -
+        (openingSpawnInterval - spawnIntervalFloor) * t;
   }
 
   @override
   double readWindowAt(int pressure) {
-    final value = 4.0 - 0.030 * pressure;
-    return value < readWindowFloor ? readWindowFloor : value;
-  }
-
-  @override
-  int maxActiveAt(int pressure) {
-    final value = 1 + pressure ~/ activeStep;
-    return value > maxActiveCeiling ? maxActiveCeiling : value;
+    if (pressure <= phaseOneEnd) {
+      return openingReadWindow;
+    }
+    if (pressure >= phaseTwoEnd) {
+      return readWindowFloor;
+    }
+    final t = (pressure - phaseOneEnd) / (phaseTwoEnd - phaseOneEnd);
+    return openingReadWindow - (openingReadWindow - readWindowFloor) * t;
   }
 }

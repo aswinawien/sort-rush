@@ -13,6 +13,7 @@ class RunSummary {
     required this.misrouted,
     required this.dropped,
     required this.bestCombo,
+    this.endless = false,
   });
 
   factory RunSummary.fromEngine(RunEngine engine) => RunSummary(
@@ -23,6 +24,7 @@ class RunSummary {
         misrouted: engine.score.misrouted,
         dropped: engine.score.dropped,
         bestCombo: engine.score.bestCombo,
+        endless: engine.level.curve != null,
       );
 
   final int levelId;
@@ -33,11 +35,32 @@ class RunSummary {
   final int dropped;
   final int bestCombo;
 
+  /// Endless runs are judged on how far they got, not on whether they were
+  /// cleared — they cannot be cleared.
+  final bool endless;
+
   bool get passed => outcome == RunOutcome.passed;
 
-  /// The rubber-stamp verdict. Clearing the shift is the baseline; the top
-  /// stamp is reserved for holding a combo, not merely surviving.
+  /// The rubber-stamp verdict.
+  ///
+  /// A curated shift is judged on whether it was cleared. Endless cannot be
+  /// cleared, so stamping every endless run `PROBATIONARY` would be calling
+  /// the player a failure for finishing the mode as designed. It is judged on
+  /// distance instead, with the top band set where the difficulty curve
+  /// reaches both of its floors.
   String get verdict {
+    if (endless) {
+      if (sorted >= 90) {
+        return 'RAN THE FLOOR';
+      }
+      if (sorted >= 60) {
+        return 'SHIFT LEAD';
+      }
+      if (sorted >= 25) {
+        return 'ON THE BOOKS';
+      }
+      return 'TEMP';
+    }
     if (!passed) {
       return 'PROBATIONARY';
     }
