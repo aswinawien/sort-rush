@@ -73,7 +73,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   LevelConfig? get _nextLevel {
     final nextId = widget.summary.levelId + 1;
-    for (final level in kPrototypeLevels) {
+    for (final level in kCuratedLevels) {
       if (level.id == nextId) {
         return level;
       }

@@ -42,6 +42,23 @@ class SortRushGame extends FlameGame {
   late final SortLineComponent _sortLine;
   late final HudComponent _hud;
 
+  /// Height at the top of the canvas occluded by system chrome — the status
+  /// bar, or a display cutout that stays occluding even in immersive mode.
+  ///
+  /// The play geometry below the status band is deliberately unaffected: the
+  /// belt keeps its full height, because the fairness timings in
+  /// docs/level-spec.md are expressed in that geometry and must not shift with
+  /// the device's notch.
+  double _safeTop = 0;
+
+  set safeTop(double value) {
+    if (value == _safeTop) {
+      return;
+    }
+    _safeTop = value;
+    _applyLayout();
+  }
+
   bool _laidOut = false;
   bool _endNotified = false;
 
@@ -84,8 +101,10 @@ class SortRushGame extends FlameGame {
     final beltHeight = h * beltFraction;
     final binsHeight = h * binsFraction;
 
-    _hud.position = Vector2.zero();
-    _hud.size = Vector2(w, statusHeight);
+    // Inset only the HUD. See docs/decision-log.md, "D-01".
+    final hudTop = _safeTop.clamp(0.0, statusHeight * 0.6);
+    _hud.position = Vector2(0, hudTop);
+    _hud.size = Vector2(w, statusHeight - hudTop);
 
     _belt.position = Vector2(0, statusHeight);
     _belt.size = Vector2(w, beltHeight);
@@ -130,6 +149,12 @@ class SortRushGame extends FlameGame {
           _hud.glitch();
         case PackageDroppedEvent():
           _hud.glitch();
+        case PackageMorphedEvent():
+          // The corrupted state and the changed silhouette are both drawn
+          // from package state by BeltComponent each frame, so nothing
+          // one-shot is needed here yet. The punctuation lands with the
+          // effects work, not with the mechanic.
+          break;
         case ComboAdvancedEvent():
           _hud.pulseCombo();
         case RunEndedEvent():

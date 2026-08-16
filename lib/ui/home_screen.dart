@@ -4,6 +4,7 @@ import '../core/level_config.dart';
 import '../core/levels.dart';
 import 'play_screen.dart';
 import 'theme.dart';
+import 'widgets/fit_or_scroll.dart';
 import 'widgets/scan_lines.dart';
 
 /// Home carries the full zine treatment. The one rule it still owes the
@@ -18,7 +19,12 @@ class HomeScreen extends StatelessWidget {
         children: [
           const Positioned.fill(child: ScanLines()),
           SafeArea(
-            child: Padding(
+            // Scrolls only when it has to. The spacers still do the work at
+            // normal text sizes; past that the content grows and the view
+            // scrolls instead of pushing PUNCH IN off the bottom. Without
+            // this, a 320x568 phone at 2x text scale cannot start a run at
+            // all — see docs/decision-log.md, "Home and briefing overflow".
+            child: FitOrScroll(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,12 +35,12 @@ class HomeScreen extends StatelessWidget {
                   Text('DEPOT 7 · NIGHT SHIFT', style: Tokens.label),
                   const Spacer(flex: 2),
                   _PunchInButton(
-                    onPressed: () => _startLevel(context, kPrototypeLevels.first),
+                    onPressed: () => _startLevel(context, kCuratedLevels.first),
                   ),
                   const SizedBox(height: 28),
                   Text('SHIFTS', style: Tokens.label),
                   const SizedBox(height: 10),
-                  for (final level in kPrototypeLevels)
+                  for (final level in kCuratedLevels)
                     _ShiftRow(
                       level: level,
                       onTap: () => _startLevel(context, level),

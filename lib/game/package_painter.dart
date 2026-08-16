@@ -9,6 +9,8 @@ import '../ui/theme.dart';
 /// Every hue is drawn through its paired pattern. Nothing here ever renders a
 /// hue as a flat fill without its pattern.
 abstract final class PackagePainter {
+  static final Paint _fillPaint = Paint();
+
   static Path shapePath(PackageShape shape, Rect r) {
     switch (shape) {
       case PackageShape.circle:
@@ -35,7 +37,12 @@ abstract final class PackagePainter {
     canvas.save();
     canvas.clipPath(path);
     final bounds = path.getBounds();
-    final paint = Paint()..color = hue;
+    // Reused rather than allocated: this runs once per package per frame, and
+    // every property below is set before use.
+    final paint = _fillPaint
+      ..color = hue
+      ..style = PaintingStyle.fill
+      ..strokeWidth = 0;
 
     switch (pattern) {
       case FillPattern.solid:

@@ -13,8 +13,16 @@ class RunScore {
   /// Combo multiplier ceiling.
   static const int maxTier = 5;
 
+  /// Extra points for sorting a package in the last moments before it drops.
+  /// Small by design: the reward for a clutch save is mostly that you did not
+  /// lose the package.
+  static const int clutchBonus = 5;
+
   int score = 0;
   int sorted = 0;
+
+  /// Correct sorts made inside the clutch window.
+  int clutchSaves = 0;
   int misrouted = 0;
   int dropped = 0;
 
@@ -41,14 +49,17 @@ class RunScore {
   /// The tier advances *before* the award is calculated, so the sort that
   /// completes a tier is the one that pays the higher rate. That is the
   /// moment the player feels, so it is the moment that should pay.
-  int registerCorrect() {
+  int registerCorrect({bool clutch = false}) {
     _consecutive++;
     sorted++;
+    if (clutch) {
+      clutchSaves++;
+    }
     final tier = comboTier;
     if (tier > bestCombo) {
       bestCombo = tier;
     }
-    final gained = baseValue * tier;
+    final gained = baseValue * tier + (clutch ? clutchBonus : 0);
     score += gained;
     return gained;
   }

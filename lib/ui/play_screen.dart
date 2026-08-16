@@ -1,5 +1,6 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/level_config.dart';
 import '../core/run_engine.dart';
@@ -7,6 +8,7 @@ import '../core/run_summary.dart';
 import '../game/sort_rush_game.dart';
 import 'results_screen.dart';
 import 'theme.dart';
+import 'widgets/fit_or_scroll.dart';
 
 /// Hosts the Flame surface and everything around it.
 ///
@@ -24,9 +26,45 @@ class PlayScreen extends StatefulWidget {
   State<PlayScreen> createState() => _PlayScreenState();
 }
 
-class _PlayScreenState extends State<PlayScreen> {
+class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
   SortRushGame? _game;
   bool _paused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // D-01: the play field is the whole screen, so system chrome is hidden
+    // while a shift is open. Sticky rather than plain immersive, so a stray
+    // edge swipe does not leave the bars sitting over the belt for the rest
+    // of the run.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  /// An interruption holds the belt rather than acting on it.
+  ///
+  /// Flame already pauses its own loop when the app is backgrounded, so no
+  /// packages are lost while the player is away — but it resumes the instant
+  /// they return, dropping them onto a moving belt with a package possibly
+  /// already near the sort line. This shows the same scrim the back gesture
+  /// does, so coming back is a deliberate act. See docs/decision-log.md,
+  /// "Returning from the background".
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      return;
+    }
+    if (_game != null && !_paused) {
+      _togglePause();
+    }
+  }
 
   void _begin() {
     setState(() {
@@ -51,8 +89,7 @@ class _PlayScreenState extends State<PlayScreen> {
       }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              ResultsScreen(summary: summary, level: widget.level),
+          builder: (_) => ResultsScreen(summary: summary, level: widget.level),
         ),
       );
     });
@@ -80,26 +117,43 @@ class _PlayScreenState extends State<PlayScreen> {
       return _BriefingScreen(level: widget.level, onStart: _begin);
     }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(child: GameWidget(game: game)),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: IconButton(
-                onPressed: _togglePause,
-                icon: Icon(
-                  _paused ? Icons.play_arrow : Icons.pause,
-                  color: Tokens.mute,
+    // M3-01: back must not destroy a run in progress. While the belt is
+    // running, back holds it and shows the scrim; leaving then takes a second,
+    // deliberate action. Once held, back behaves normally and exits.
+    // Pushed every build: the inset changes when the OS shows or hides the
+    // bars, and a display cutout keeps occluding even in immersive mode, so
+    // this is the fallback that keeps the HUD legible in either state.
+    game.safeTop = MediaQuery.paddingOf(context).top;
+
+    return PopScope(
+      canPop: _paused,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        _togglePause();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            Positioned.fill(child: GameWidget(game: game)),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  onPressed: _togglePause,
+                  icon: Icon(
+                    _paused ? Icons.play_arrow : Icons.pause,
+                    color: Tokens.mute,
+                  ),
+                  iconSize: 28,
+                  tooltip: _paused ? 'Resume' : 'Pause',
                 ),
-                iconSize: 28,
-                tooltip: _paused ? 'Resume' : 'Pause',
               ),
             ),
-          ),
-          if (_paused) _PauseScrim(onResume: _togglePause),
-        ],
+            if (_paused) _PauseScrim(onResume: _togglePause),
+          ],
+        ),
       ),
     );
   }
@@ -117,7 +171,9 @@ class _BriefingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        // Same reason as home: at large text scales the briefing outgrew the
+        // screen and pushed START BELT out of reach.
+        child: FitOrScroll(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +197,7 @@ class _BriefingScreen extends StatelessWidget {
               Text(
                 level.isUnfailable
                     ? 'NO PENALTY THIS SHIFT.'
-                    : 'SORT ${level.passTarget} · ${level.mistakeLimit} MISTAKES ALLOWED.',
+                    : '${level.passCondition.briefingCopy} · ${level.mistakeLimit} MISTAKES ALLOWED.',
                 style: Tokens.label,
               ),
               const Spacer(),
@@ -186,7 +242,8 @@ class _PauseScrim extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('BELT HELD', style: Tokens.display.copyWith(color: Tokens.paper)),
+            Text('BELT HELD',
+                style: Tokens.display.copyWith(color: Tokens.paper)),
             const SizedBox(height: 32),
             TextButton(
               onPressed: onResume,

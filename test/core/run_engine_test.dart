@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sort_rush/core/package_spec.dart';
+import 'package:sort_rush/core/pass_condition.dart';
 import 'package:sort_rush/core/run_engine.dart';
 
 import 'test_level.dart';
@@ -124,7 +125,7 @@ void main() {
 
     test('the belt respects maxActive', () {
       final engine = RunEngine(
-        level: testLevel(readWindow: 100, spawnInterval: 0.1, maxActive: 2),
+        level: testLevel(readWindow: 100, spawnInterval: 0.65, maxActive: 2),
         seed: 1,
       )..start();
 
@@ -154,14 +155,17 @@ void main() {
   group('ending a run', () {
     test('reaching the pass target passes the run', () {
       final engine = RunEngine(
-        level: testLevel(readWindow: 100, spawnInterval: 0.01, passTarget: 3),
+        level: testLevel(
+            readWindow: 100,
+            spawnInterval: 0.65,
+            passCondition: const SortTarget(3)),
         seed: 1,
       )..start();
 
       for (var i = 0; i < 3; i++) {
         sortCorrectly(engine);
         if (engine.phase == RunPhase.running) {
-          engine.update(0.02);
+          spawnNext(engine);
         }
       }
 
@@ -173,14 +177,14 @@ void main() {
       final engine = RunEngine(
         level: testLevel(
           readWindow: 100,
-          spawnInterval: 0.01,
+          spawnInterval: 0.65,
           mistakeLimit: 2,
         ),
         seed: 1,
       )..start();
 
       sortWrongly(engine);
-      engine.update(0.02);
+      spawnNext(engine);
       sortWrongly(engine);
 
       expect(engine.outcome, RunOutcome.failed);
@@ -189,7 +193,10 @@ void main() {
 
     test('the ending phase holds before the run is over', () {
       final engine = RunEngine(
-        level: testLevel(readWindow: 100, spawnInterval: 0.01, passTarget: 1),
+        level: testLevel(
+            readWindow: 100,
+            spawnInterval: 0.65,
+            passCondition: const SortTarget(1)),
         seed: 1,
       )..start();
 
@@ -206,7 +213,7 @@ void main() {
       final engine = RunEngine(
         level: testLevel(
           readWindow: 100,
-          spawnInterval: 0.01,
+          spawnInterval: 0.65,
           mistakeLimit: null,
         ),
         seed: 1,
@@ -214,7 +221,7 @@ void main() {
 
       for (var i = 0; i < 12; i++) {
         sortWrongly(engine);
-        engine.update(0.02);
+        spawnNext(engine);
       }
 
       expect(engine.score.mistakes, 12);
@@ -239,13 +246,13 @@ void main() {
 
     test('crossing a tier emits a combo event alongside the sort', () {
       final engine = RunEngine(
-        level: testLevel(readWindow: 100, spawnInterval: 0.01),
+        level: testLevel(readWindow: 100, spawnInterval: 0.65),
         seed: 1,
       )..start();
 
       for (var i = 0; i < 4; i++) {
         sortCorrectly(engine);
-        engine.update(0.02);
+        spawnNext(engine);
       }
       engine.drainEvents();
 

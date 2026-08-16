@@ -1,6 +1,5 @@
-import 'dart:ui';
-
 import 'package:flame/components.dart';
+import 'package:flutter/painting.dart';
 
 import '../../ui/theme.dart';
 import '../sort_rush_game.dart';
@@ -12,12 +11,47 @@ import '../text_util.dart';
 /// feedback in the score region is frame-synced with feedback at the bin. The
 /// design requires both to land together; a widget rebuild cannot guarantee
 /// that.
+/// Holds one laid-out `TextPainter` and re-lays it only when what it draws
+/// actually changes.
+///
+/// Text shaping is the most expensive thing this HUD does, and the score
+/// string changes a few times a second while the frame rate is sixty. Only
+/// the pulse animations vary continuously, and then only briefly.
+class _CachedText {
+  TextPainter? _painter;
+  String? _text;
+  double? _fontSize;
+  Color? _color;
+
+  TextPainter layout(String text, TextStyle style) {
+    final painter = _painter;
+    if (painter != null &&
+        _text == text &&
+        _fontSize == style.fontSize &&
+        _color == style.color) {
+      return painter;
+    }
+    _text = text;
+    _fontSize = style.fontSize;
+    _color = style.color;
+    return _painter = layoutText(text, style);
+  }
+}
+
 class HudComponent extends PositionComponent
     with HasGameReference<SortRushGame> {
   /// Space reserved at the right edge for the Flutter pause button that sits
   /// over the canvas. Without it the mistake pips and the level-1 notice draw
   /// underneath the icon.
   static const double rightInset = 56;
+
+  final _CachedText _ghostText = _CachedText();
+  final _CachedText _scoreText = _CachedText();
+  final _CachedText _comboText = _CachedText();
+  final _CachedText _noticeText = _CachedText();
+
+  /// Reused across pips and frames. Every property is set on each use.
+  static final Paint _pipPaint = Paint()..strokeWidth = 1.5;
 
   double _scorePulse = 0;
   double _comboPulse = 0;
@@ -60,32 +94,34 @@ class HudComponent extends PositionComponent
     );
 
     if (_glitch > 0) {
-      final ghost = layoutText(
+      final ghost = _ghostText.layout(
         '${score.score}',
         scoreStyle.copyWith(color: Tokens.warn.withValues(alpha: 0.8)),
       );
       ghost.paint(canvas, Offset(16 + _glitch * 3, 10));
     }
 
-    final scoreText = layoutText('${score.score}', scoreStyle);
+    final scoreText = _scoreText.layout('${score.score}', scoreStyle);
     scoreText.paint(canvas, const Offset(16, 10));
 
     final comboStyle = Tokens.label.copyWith(
       color: score.comboTier > 1 ? Tokens.acid : Tokens.mute,
       fontSize: 13 + _comboPulse * 3,
     );
-    final combo = layoutText('COMBO x${score.comboTier}', comboStyle);
+    final combo = _comboText.layout('COMBO x${score.comboTier}', comboStyle);
     combo.paint(canvas, Offset(18, 12 + scoreText.height));
 
     _renderMistakes(canvas, score.mistakes);
   }
 
   void _renderMistakes(Canvas canvas, int mistakes) {
-    final limit = game.level.mistakeLimit;
+    // Read from the engine, not the level: a run's mistake limit can move,
+    // and pips showing a stale number would be showing a lie.
+    final limit = game.engine.tuning.mistakeLimit;
     if (limit == null) {
       // Level 1 cannot be failed, so showing empty pips would imply a threat
       // that does not exist.
-      final note = layoutText('NO PENALTY', Tokens.label);
+      final note = _noticeText.layout('NO PENALTY', Tokens.label);
       note.paint(canvas, Offset(size.x - note.width - rightInset, 16));
       return;
     }
@@ -99,9 +135,8 @@ class HudComponent extends PositionComponent
       canvas.drawCircle(
         centre,
         radius,
-        Paint()
+        _pipPaint
           ..style = spent ? PaintingStyle.fill : PaintingStyle.stroke
-          ..strokeWidth = 1.5
           ..color = spent ? Tokens.warn : Tokens.mute,
       );
     }

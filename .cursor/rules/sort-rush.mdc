@@ -1,0 +1,22 @@
+---
+description: Sort Rush project rules — human-gated workflow, layer boundaries, and Flame test gotchas
+alwaysApply: true
+---
+
+# Sort Rush
+
+Read `AGENTS.md` at the repo root before doing anything. It carries the environment quirks, the testing gotchas, and the current state of the work. `CLAUDE.md` is the project constitution and overrides everything.
+
+The four rules that matter most, repeated here because breaking them is expensive:
+
+1. **This project is human-gated.** Never implement a decision-log entry marked `proposed`, and never change an entry's status — only the human does that. Never start a milestone whose gate has not been approved. Gate 3 closed on 2026-08-16, so Milestone 4 is open; entries added since then are `proposed` and awaiting Gate 4. When you find something needing a decision, write it up as `proposed` and stop.
+
+2. **`lib/core` imports neither Flame nor Flutter.** `test/core/no_engine_imports_test.dart` enforces it. Never weaken that test to make a change compile. Rules live in `core/`, rendering in `game/`, navigation in `ui/`.
+
+3. **Randomness is `SeededRng` only** — a pinned xorshift32. `dart:math`'s `Random` appears nowhere in this project and must stay that way; deterministic replay from a seed is an acceptance criterion.
+
+4. **`flutter` is not on `PATH`:** `export PATH="$HOME/flutter/bin:$PATH"`. There is no Android SDK here, so `flutter build appbundle` fails and nothing runs on a device. Use the web build to see the game run.
+
+When writing widget tests: never `pumpAndSettle()` while a Flame `GameWidget` is mounted — it never settles. Pump ≥100ms after any tap that reaches Flame. See the testing section of `AGENTS.md` for the rest.
+
+`flutter analyze` must stay clean and `flutter test` must stay green. Never hide a failing test, a crash, an analyzer warning, or an unresolved design contradiction.

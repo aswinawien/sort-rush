@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sort_rush/core/levels.dart';
 import 'package:sort_rush/ui/home_screen.dart';
 import 'package:sort_rush/ui/theme.dart';
 
 void main() {
-  Widget wrap(Widget child) =>
-      MaterialApp(theme: buildTheme(), home: child);
+  Widget wrap(Widget child) => MaterialApp(theme: buildTheme(), home: child);
 
   testWidgets('home offers a one-tap start', (tester) async {
     await tester.pumpWidget(wrap(const HomeScreen()));
@@ -14,12 +14,18 @@ void main() {
     expect(find.text('DEPOT 7 · NIGHT SHIFT'), findsOneWidget);
   });
 
-  testWidgets('home lists the three prototype shifts', (tester) async {
+  testWidgets('home lists every curated shift', (tester) async {
     await tester.pumpWidget(wrap(const HomeScreen()));
 
-    expect(find.text('INDUCTION'), findsOneWidget);
-    expect(find.text('THREE CHUTES'), findsOneWidget);
-    expect(find.text('RELABELLED'), findsOneWidget);
+    // Derived from the table so adding a level cannot leave it off the list
+    // without a test noticing.
+    for (final level in kCuratedLevels) {
+      expect(
+        find.text(level.title),
+        findsOneWidget,
+        reason: 'shift ${level.id} is missing from home',
+      );
+    }
   });
 
   testWidgets('the title is misregistered, not duplicated by accident',

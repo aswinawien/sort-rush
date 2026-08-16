@@ -22,6 +22,14 @@ class BinSpec {
   final FillPattern? pattern;
 }
 
+/// The package attribute a routing rule reads.
+///
+/// Exposed so `DAMAGED` can corrupt the attribute that actually decides the
+/// destination. Corrupting a fixed attribute would be inert on any level that
+/// routes on the other one — see docs/decision-log.md, "`DAMAGED` corrupts
+/// the wrong attribute on colour-routed levels".
+enum RoutedAttribute { shape, colour, compound }
+
 /// Maps a package to the index of the bin it belongs in.
 ///
 /// Implementations are pure and engine-free so routing can be unit tested
@@ -33,6 +41,10 @@ abstract class RoutingRule {
 
   /// The bins this rule addresses, in display order.
   List<BinSpec> get bins;
+
+  /// Which attribute this rule reads. Everything else about a package is
+  /// decoration as far as this rule is concerned.
+  RoutedAttribute get reads;
 }
 
 /// Routes on silhouette. Used by levels 1-2, where shape is the only attribute
@@ -43,6 +55,9 @@ class ShapeRouting implements RoutingRule {
 
   /// Shapes in bin order. Position in this list *is* the bin index.
   final List<PackageShape> order;
+
+  @override
+  RoutedAttribute get reads => RoutedAttribute.shape;
 
   @override
   int binFor(PackageSpec package) => order.indexOf(package.shape);
@@ -69,6 +84,9 @@ class ColorRouting implements RoutingRule {
   final List<int> order;
 
   @override
+  RoutedAttribute get reads => RoutedAttribute.colour;
+
+  @override
   int binFor(PackageSpec package) => order.indexOf(package.colorIndex);
 
   @override
@@ -82,3 +100,46 @@ class ColorRouting implements RoutingRule {
 }
 
 String _letter(int index) => String.fromCharCode(65 + index);
+
+/// Routes on shape *and* hue together, with each chute owning one exact pair.
+///
+/// The pairs are chosen so that neither attribute alone disambiguates: two
+/// chutes share a shape and two share a hue, so reading only one of them
+/// leaves the player guessing between two chutes. That is the whole lesson of
+/// level 8 — the ladder in docs/design-spec.md §2 goes identity, attribute
+/// switch, compound, override, and this is the third rung.
+///
+/// Only the pairs listed here are ever spawned. A level that could spawn a
+/// combination with no chute would be unwinnable through no fault of the
+/// player, which `levels_test.dart` checks for.
+class CompoundRouting implements RoutingRule {
+  CompoundRouting(this.order)
+      : assert(order.isNotEmpty, 'need at least one destination');
+
+  /// (shape, hue) pairs in chute order. Position in this list *is* the index.
+  final List<PackageSpec> order;
+
+  @override
+  RoutedAttribute get reads => RoutedAttribute.compound;
+
+  @override
+  int binFor(PackageSpec package) {
+    for (var i = 0; i < order.length; i++) {
+      if (order[i].shape == package.shape &&
+          order[i].colorIndex == package.colorIndex) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  @override
+  late final List<BinSpec> bins = [
+    for (var i = 0; i < order.length; i++)
+      BinSpec(
+        label: _letter(i),
+        shape: order[i].shape,
+        pattern: order[i].pattern,
+      ),
+  ];
+}

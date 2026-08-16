@@ -49,8 +49,8 @@ void main() {
     // Level 1 has a single full-width bin, so any tap inside the bin band is
     // the correct destination.
     final size = tester.view.physicalSize / tester.view.devicePixelRatio;
-    final binBandTop = size.height *
-        (SortRushGame.statusFraction + SortRushGame.beltFraction);
+    final binBandTop =
+        size.height * (SortRushGame.statusFraction + SortRushGame.beltFraction);
     await tester.tapAt(
       Offset(size.width / 2, binBandTop + size.height * 0.1),
     );
@@ -69,5 +69,60 @@ void main() {
     // Level 3 routes on hue with two hues in play, so it shows two chutes.
     expect(game.level.binCount, 2);
     expect(game.engine.phase, RunPhase.running);
+  });
+
+  group('chute boundaries', () {
+    // "Destination controls must be large and forgiving" in
+    // docs/design-system.md is only true if the edges of a chute are live.
+
+    double chuteWidth(SortRushGame game) =>
+        (game.size.x - SortRushGame.binGap * (game.level.binCount - 1)) /
+        game.level.binCount;
+
+    double chuteY(SortRushGame game) =>
+        game.size.y *
+            (SortRushGame.statusFraction + SortRushGame.beltFraction) +
+        SortRushGame.binGap +
+        (game.size.y * SortRushGame.binsFraction - SortRushGame.binGap * 2) / 2;
+
+    testWidgets('the leading edge of a chute is live', (tester) async {
+      final game = await boot(tester, levelId: 2);
+      final target = game.level.routing.binFor(game.engine.frontMost!.spec);
+      final left = target * (chuteWidth(game) + SortRushGame.binGap);
+
+      await tester.tapAt(Offset(left + 0.5, chuteY(game)));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(game.engine.score.sorted, 1);
+      expect(game.engine.score.mistakes, 0);
+    });
+
+    testWidgets('the trailing edge of a chute is live', (tester) async {
+      final game = await boot(tester, levelId: 2);
+      final target = game.level.routing.binFor(game.engine.frontMost!.spec);
+      final right =
+          target * (chuteWidth(game) + SortRushGame.binGap) + chuteWidth(game);
+
+      await tester.tapAt(Offset(right - 0.5, chuteY(game)));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(game.engine.score.sorted, 1);
+      expect(game.engine.score.mistakes, 0);
+    });
+
+    testWidgets('a tap in the gap between chutes costs the player nothing',
+        (tester) async {
+      final game = await boot(tester, levelId: 2);
+      final gapCentre = chuteWidth(game) + SortRushGame.binGap / 2;
+
+      await tester.tapAt(Offset(gapCentre, chuteY(game)));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Landing between two chutes is a miss, not a misroute. Charging a
+      // mistake for it would punish aim rather than judgement.
+      expect(game.engine.score.sorted, 0);
+      expect(game.engine.score.mistakes, 0);
+      expect(game.engine.active, hasLength(1));
+    });
   });
 }

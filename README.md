@@ -20,12 +20,18 @@ Difficulty comes from four data-driven numbers per level: read window, spawn int
 
 ## Current status
 
-**Milestone 3 — prototype.** Home → Levels 1–3 → Results → Retry is playable end to end, with scoring, combo, game over, and restart.
+**Milestone 4 — vertical slice — in progress.** Milestone 3 passed its gate on 2026-08-16. Home → Levels 1–9 → Results → Retry is playable end to end, with scoring, combo, game over, and restart.
 
 - `flutter analyze` — clean
-- `flutter test` — 63 passing
+- `flutter test` — 187 passing
+- `flutter build appbundle --release` — verified, 45.2 MB (~7 MB per device)
+- Runs on Android — see `docs/screenshots/device/`
 
-Levels 4–10, endless mode, onboarding, persistence, and sound are Milestone 4. Several decision-log entries are still `proposed` and waiting on the Gate 3 review.
+**Nine of ten curated shifts ship.** Level 10 needs the `PRIORITY` override, which is specified but unimplemented — `PackageStamp.priority` is currently an enum value no routing rule reads. Endless mode does not exist yet; its foundation is being built.
+
+Mechanics live today: shape routing, the attribute switch to colour and pattern, combo tiers, queue pressure, clutch saves at the sort line, compound shape-plus-pattern routing, and `DAMAGED` packages that corrupt and re-render mid-belt.
+
+**The honest caveat.** Milestone 3's "no P0/P1 bugs" criterion was accepted on automated testing alone. The first run on an Android emulator promptly found a P1 — the HUD drew underneath the system status bar, putting the mistake pips on top of the signal icons. It is fixed. But **no human has played this game yet**, so the fairness floors below are still derived from published reaction-time ranges rather than measured on a real player. See `docs/milestone-3-gate.md` and `docs/decision-log.md`.
 
 ## Getting started
 
@@ -52,8 +58,9 @@ The one rule that shapes the codebase: **gameplay logic never imports the engine
 
 ```
 lib/
-  core/    scoring, combo, difficulty, routing rules, seeded RNG,
-           run state machine — imports neither Flame nor Flutter
+  core/    scoring, combo, pass conditions, difficulty, routing rules,
+           live run tuning, seeded RNG, run state machine
+           — imports neither Flame nor Flutter
   game/    Flame rendering and input shell (belt, bins, sort line, HUD)
   ui/      Flutter navigation, overlays, briefing, pause, results
 ```
@@ -63,6 +70,14 @@ lib/
 This buys two things. Scoring, combo, difficulty, seed replay, and state transitions are unit-testable with no game loop. And randomness stays seedable: a single `SeededRng` is owned by the run and injected, so the same seed plus the same input timeline reproduces a run exactly.
 
 That RNG is a pinned xorshift32 rather than `dart:math`'s `Random` — deliberately, so a seed yields an identical sequence on every platform and every SDK version instead of inheriting whatever the SDK ships. `dart:math`'s `Random` is not used anywhere in the project.
+
+Two rules keep randomness fair, and both are enforced by tests rather than by intention:
+
+**Randomness resolves before a decision, never after.** A `DAMAGED` package shows a corrupted state for a telegraphed window *before* it changes, so the player can choose to wait. A silent change would punish a decision already committed to. Every future random element is held to the same test.
+
+**A package's timing is fixed when it spawns.** Read window and telegraph live on the package, not read from the level each tick — so nothing that changes a run's difficulty partway through can speed up, or move the deadline of, something already in flight.
+
+`lib/core/run_tuning.dart` is the single source of a run's live numbers, and the fairness floors are clamped there rather than in each thing that might change them. That makes "nothing can breach a 1.20s read window or a 0.65s spawn interval" structurally true instead of a rule everyone has to remember.
 
 ## Accessibility
 
@@ -92,11 +107,16 @@ Explicitly excluded from v1: accounts, backend, multiplayer, online leaderboards
 | Document | What it covers |
 |---|---|
 | `CLAUDE.md` | Project constitution — mission, non-negotiables, milestones |
+| `AGENTS.md` | Handoff for coding agents — environment quirks, test gotchas, current state |
 | `docs/product-brief.md` | Pitch, target player, risks, scope ceiling, discarded alternatives |
 | `docs/design-system.md` | Visual direction, novelty budget, interaction and accessibility rules |
 | `docs/design-spec.md` | Screen-by-screen specification and Flutter/Flame mapping |
 | `docs/level-spec.md` | Curated levels 1–10, endless curve, difficulty parameters |
+| `docs/audio-brief.md` | Soundtrack direction and per-level generation prompts |
+| `docs/milestone-3-gate.md` | Gate 3: criteria, evidence, defects, and the rulings |
+| `docs/screenshots/` | Web captures of every screen, plus real device captures |
 | `docs/testing-strategy.md` | Test layers and quality bar |
+| `docs/backlog.md` | Captured intent — not designed, not scheduled, not approved |
 | `docs/decision-log.md` | Every meaningful decision, its evidence, and its gate status |
 
 Meaningful decisions go in the decision log. A proposal is not approved until the human gate says so, and when evidence invalidates a decision the log gets a new entry — history is never rewritten.
@@ -105,6 +125,6 @@ Meaningful decisions go in the decision log. A proposal is not approved until th
 
 1. **Concept** — pitch, core loop, target player, risks, scope ceiling
 2. **Design** — states, UI/UX, rules, onboarding, endless curve, technical handoff
-3. **Prototype** — one complete run, scoring, combo, game over, restart, no P0/P1 bugs ← *current*
-4. **Vertical slice** — onboarding, endless mode, persistence, feedback, device test
+3. **Prototype** — one complete run, scoring, combo, game over, restart, no P0/P1 bugs — *passed 2026-08-16*
+4. **Vertical slice** — onboarding, endless mode, persistence, feedback, device test ← *current*
 5. **Internal test** — signed AAB, listing basics, tester channel, release evidence
