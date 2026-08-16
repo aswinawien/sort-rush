@@ -1,0 +1,23 @@
+name: sort_rush
+description: "A one-thumb parcel-sorting game with a glitchy counterculture identity."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+  # Flame 1.36.0 raised its floor to Flutter 3.41.0.
+  flutter: '>=3.41.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.38.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  # No asset pipeline in v1: shapes, type, and particles are procedural.
