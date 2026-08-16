@@ -44,4 +44,40 @@ class SeededRng {
     }
     return items[nextInt(items.length)];
   }
+
+  /// Draws [count] distinct elements uniformly, in random order.
+  ///
+  /// A partial Fisher–Yates shuffle: each step swaps one more element into
+  /// place from whatever is still unpicked, so a value can never be drawn
+  /// twice and every possible hand is equally likely.
+  ///
+  /// The property that matters here is that it spends **exactly [count]
+  /// draws**, whatever the size of [items]. The obvious alternative — pick at
+  /// random and redraw on a duplicate — spends a *variable* number, so the
+  /// sequence would depend on which values happened to collide. Anything
+  /// drawing from a shared stream would then shift depending on game state,
+  /// and a bug reported with a seed would no longer reproduce from that seed
+  /// alone.
+  ///
+  /// [items] is not modified.
+  List<T> take<T>(List<T> items, int count) {
+    if (count < 0 || count > items.length) {
+      throw ArgumentError.value(
+        count,
+        'count',
+        'must be between 0 and ${items.length}',
+      );
+    }
+    final work = List<T>.of(items);
+    final drawn = <T>[];
+    for (var i = 0; i < count; i++) {
+      // Choose from what is left, then swap the choice out of the way so the
+      // next step cannot reach it.
+      final j = i + nextInt(work.length - i);
+      final chosen = work[j];
+      work[j] = work[i];
+      drawn.add(chosen);
+    }
+    return drawn;
+  }
 }

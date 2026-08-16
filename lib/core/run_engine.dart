@@ -265,7 +265,11 @@ class RunEngine {
   /// its mistake limit takes effect immediately, rather than waiting for the
   /// next scoring event.
   void _retune() {
-    _tuning = RunTuning.resolve(level: level, modifiers: _modifiers);
+    _tuning = RunTuning.resolve(
+      level: level,
+      pressure: pressure,
+      modifiers: _modifiers,
+    );
     _checkEnd();
   }
 

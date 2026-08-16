@@ -108,3 +108,23 @@ class EveryOf extends PassCondition {
   String get briefingCopy =>
       conditions.map((condition) => condition.briefingCopy).join(' · ');
 }
+
+/// A shift that cannot be cleared, only survived.
+///
+/// Endless has no pass target by definition — the run ends when the mistakes
+/// run out, and the score is the whole point. Modelled as a condition rather
+/// than as a null so the engine never has to ask whether a level has one.
+class Survive extends PassCondition {
+  const Survive();
+
+  @override
+  bool isMetBy(RunScore score) => false;
+
+  /// Meaningless for a condition that can never be met. Only the curated
+  /// duration guard consumes this, and endless is not in that table.
+  @override
+  int get minimumSorts => 0;
+
+  @override
+  String get briefingCopy => 'LAST AS LONG AS YOU CAN';
+}

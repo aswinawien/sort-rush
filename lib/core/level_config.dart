@@ -1,3 +1,4 @@
+import 'difficulty.dart';
 import 'package_spec.dart';
 import 'pass_condition.dart';
 import 'routing.dart';
@@ -23,6 +24,7 @@ class LevelConfig {
     this.chaosRate = 0.0,
     this.telegraphSeconds = 0.0,
     this.spawnPool,
+    this.curve,
   })  : assert(chaosRate >= 0 && chaosRate <= 1, 'chaosRate is a probability'),
         assert(
           chaosRate == 0 || telegraphSeconds > 0,
@@ -47,6 +49,13 @@ class LevelConfig {
 
   /// Hue indices this level may spawn.
   final List<int> colors;
+
+  /// How this run's numbers move as pressure rises, or null for a level whose
+  /// numbers are fixed.
+  ///
+  /// Every curated level is fixed: a lesson you can feel changing underneath
+  /// you is not a lesson. Only endless carries a curve.
+  final DifficultyCurve? curve;
 
   /// Exact packages this level may spawn, overriding the cross product of
   /// [shapes] and [colors].

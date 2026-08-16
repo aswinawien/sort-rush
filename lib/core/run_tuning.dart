@@ -54,8 +54,19 @@ class RunTuning {
   /// free in debug and are unreachable in release.
   factory RunTuning.resolve({
     required LevelConfig level,
+    int pressure = 0,
     TuningDelta modifiers = TuningDelta.none,
   }) {
+    // A curved level reads its base from the curve at this pressure; a fixed
+    // one reads its own numbers. Everything after this point is identical.
+    final curve = level.curve;
+    final baseReadWindow =
+        curve == null ? level.readWindow : curve.readWindowAt(pressure);
+    final baseSpawnInterval =
+        curve == null ? level.spawnInterval : curve.spawnIntervalAt(pressure);
+    final baseMaxActive =
+        curve == null ? level.maxActive : curve.maxActiveAt(pressure);
+
     final chaos = _clampDouble(level.chaosRate + modifiers.chaosRate, 0, 1);
 
     // A level with no chaos is allowed a telegraph of zero — there is nothing
@@ -69,15 +80,15 @@ class RunTuning {
 
     return RunTuning(
       readWindow: _atLeast(
-        level.readWindow + modifiers.readWindow,
+        baseReadWindow + modifiers.readWindow,
         readWindowFloor,
       ),
       spawnInterval: _atLeast(
-        level.spawnInterval + modifiers.spawnInterval,
+        baseSpawnInterval + modifiers.spawnInterval,
         spawnIntervalFloor,
       ),
       maxActive: _clampInt(
-        level.maxActive + modifiers.maxActive,
+        baseMaxActive + modifiers.maxActive,
         1,
         maxActiveCeiling,
       ),

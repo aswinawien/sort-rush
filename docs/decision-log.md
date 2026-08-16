@@ -368,3 +368,84 @@ Record decisions as append-only entries.
   - **The reproducibility contract grows.** "Same seed reproduces a run" becomes "same seed **plus the same taps plus the same shop choices**". Any replay harness must record card ids, rerolls and skips. Named here so it is not discovered through a confusing bug report.
   - The shop draws from its own `SeededRng` derived from the run seed, never the engine's, so shop behaviour cannot shift package spawns.
 - Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Dynamic chutes in endless: count progression, lane swapping, morphing
+
+- Status: proposed
+- Context: Human proposal to expand beyond a fixed three-chute layout in endless, on the argument that fixed layouts hit an autopilot ceiling where muscle memory takes over and the game becomes a rhythm exercise. Three mechanics were proposed: chute count progression (2→4), lane swapping (two chutes exchange positions on a warning), and chute morphing (a chute changes what it accepts).
+- Evidence:
+  - The autopilot argument is sound and is the strongest case yet for this. Every other pressure in the game escalates *speed* — read window, spawn interval, packages on the belt. Changing the board is the only proposal that escalates *uncertainty*, which is a different axis and the one most likely to make endless read as its own mode.
+  - **Touch targets are not the binding constraint.** At 360dp wide with the existing 8dp gap: three chutes give 115dp each, four give 84dp, five give 66dp — all comfortably past the 48dp minimum. Width does not bite until roughly seven chutes. The real cost of a fourth chute is reading time, not aim.
+  - The scope ceiling fixes bins on screen at 3, so 2→4 breaches it in both directions.
+  - Endless currently uses `CompoundRouting` with three chutes owning three specific (shape, hue) pairs, so a two-chute opening cannot use that rule and needs its own routing set.
+  - Levels 8–10 were proposed as the teaching slots. **All three are already booked** — 8 is compound reading, 9 is `PRIORITY`, 10 is the shop preview — and level 10 does not exist while `PRIORITY` is unimplemented. The ten-level ladder is the scarce resource here, not the ideas.
+- Options considered: (a) all three mechanics; (b) count progression only; (c) count progression and lane swapping, rejecting morphing; (d) none.
+- Decision: none yet. **(c) is the recommendation.**
+  - **Count progression** is the strongest and the cheapest to reason about. Needs a ceiling ruling and a routing set for a two-chute opening.
+  - **Lane swapping** is viable under one rule, stated below. Cadence of 20–30s over a 2–4 minute run gives 4–8 swaps, which is reasonable.
+  - **Morphing is recommended against.** It is `DAMAGED` applied to the chute rather than the package, and the blast radius is categorically different: a corrupted *package* changes one answer the player can see and wait out, while a morphing *chute* changes the answer for everything on the belt at once. It also does the same cognitive work as `PRIORITY`, which flips which attribute is read. Two mechanics both meaning "the rule just changed" tend to read as noise rather than depth.
+- **The telegraph rule, which is the load-bearing part**: the proposal suggested a fixed 1.5–2s warning. The correct rule is that **the telegraph must be at least as long as the current read window**. If it is, every package on the belt spawned *after* the warning appeared, so nobody was ever committed under the old layout — which is what converts a chute change from output randomness into input randomness. A fixed 1.5–2s happens to clear the 1.20s endless floor, but early in a run the read window is 4.0s and a 2s warning would leave packages mid-flight that were read under the old chutes. Express it as `telegraph >= tuning.readWindow`, not as a constant.
+- Consequences: Any of this needs a ceiling ruling first. The alternative that costs no ceiling change is to keep three chutes and vary what they *contain* through the spawn pool, which is already how the endless kind-unlock deviation is proposed to work.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — XP bar and roguelite upgrades: what fits, and what would break
+
+- Status: proposed
+- Context: Human proposal for a Vampire Survivors-style XP bar feeding a mid-run three-card shop, with a set of candidate upgrades. Much of it converges with the already-approved endless shop; a few items would break mechanics that are already built.
+- Evidence and assessment, item by item:
+  - **The XP bar already exists — it is the pressure index `P`.** `RunEngine.pressure` is `score.sorted`, it increments per correct sort, it never decreases, and it already drives the difficulty curve and the shop thresholds. Presenting it as a filling bar is a **presentation change, not a new system**, and it should not become a third counter alongside score and pay. Two currencies are already the most this run length can carry.
+  - **Micro-break pacing** is a real benefit and is already how the shop is designed: crossing a threshold drains the belt before the panel opens, so the pause is earned rather than jarring.
+  - **The Flutter overlay recommendation is right, but `game.overlays.add(...)` is not.** `docs/decision-log.md` records that pause is a Flutter `Stack` rather than a Flame overlay *because it must reach `Navigator` for "quit to home"*. The same reasoning applies to a shop panel. The overlay is a Flutter child of the existing `Stack`, wrapped so it claims its own hits — `_PauseScrim` is a `ColoredBox` and taps reach through it.
+  - **`Auto-Sorter` (sorts one item every 5s) — rejected.** The core loop is observe, choose, tap. An upgrade that removes the tap removes the game, and it inflates a score that the pitch says should measure the player.
+  - **`Magnet` (draws near-miss items into the correct chute) — rejected.** It destroys the clutch save, which is level 7's entire lesson and is already built and tested, and it decides an outcome the player did not.
+  - **`Shield` (protects against one wrong sort without breaking combo) — rejected as written.** Whether it fires is determined *after* the tap, which is output randomness — the same failure the silent shape-shift was rejected for. The legible version already exists in the planned card set: `+1 MISTAKE ALLOWED`, known before you tap rather than discovered after.
+  - **`Fever Time` cites a 10x combo, but the combo caps at x5** (`RunScore.maxTier`). Factual mismatch, and worth noting because it suggests the upgrade set was designed against an imagined scoring model rather than the one that exists.
+  - **Timed effects (`Fever Time`, `Time Dilator`) — recommended against.** A conveyor slowdown that begins while packages are in flight either applies to them, which changes a deadline mid-decision, or does not, which is invisible and confusing. The approved design makes every modifier permanent for the run and applies it on a drained belt precisely to avoid this. `SLOW BELT` in the planned set does the same job without a timer.
+  - **`Chute Lock`** depends on lane swapping, which is unruled.
+- **The framing point, recorded because it is a design decision and not a detail.** The proposal argues the shop's value is a "variable ratio reward (the slot machine effect)" producing "a natural dopamine spike". That is precisely what Frank Lantz's Balatro essay warns about — that such systems work "by manipulating the cause and effect mechanism in your brain" — and `CLAUDE.md` forbids monetization until repeat play has been demonstrated by human testing, with that machinery being the concern. A shop that presents a real decision and a shop tuned to produce anticipation spikes are different products. The pitch, "prove you can beat your own best run", is a skill claim. **The recommendation is to keep designing for the decision and let any dopamine be a side effect rather than the target.**
+- Options considered: (a) adopt the upgrade set as proposed; (b) adopt the XP presentation and the pacing, reject the four upgrades that decide outcomes for the player, keep the planned give-and-take card set; (c) reject wholesale.
+- Decision: none yet. **(b) is the recommendation.**
+- Consequences: Under (b) the only new work is presentational — drawing `P` as a filling bar — plus the shop already planned. No new counter, no new currency, and no upgrade that plays the game on the player's behalf.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Correction: the ban on timed effects was too broad
+
+- Status: approved (human gate, 2026-08-17)
+- Context: The entry *XP bar and roguelite upgrades* recommended against timed effects outright, on the grounds that a change beginning while packages are in flight moves a deadline mid-decision. A later proposal — a memo granting 100% corrupted packages for twenty seconds at quadruple score — showed that reasoning was overgeneralised.
+- Evidence: `chaosRate` is read **only in `_spawn`**. Packages already on the belt captured their own `readWindow` and `telegraphSeconds` at spawn and are untouched by any later change. So a timed chaos window cannot alter a decision already in progress. The same is true of `scorePercent` and `payPercent`, which are read at the moment a sort is scored. What is *not* safe is a timed change to **timing** — read window and spawn interval — because those govern deadlines for things already in the air, which is the hazard the per-package freeze exists to prevent.
+- Options considered: (a) keep the blanket ban; (b) narrow it to the parameters that actually govern in-flight deadlines.
+- Decision: Option (b). **Timed changes to read window and spawn interval remain forbidden. Timed changes to chaos rate, score rate and pay rate are permitted**, because they take effect at spawn or at scoring and can never reach a package the player is already reading.
+- Consequences: This reopens a category previously closed, including localised "challenge window" effects — opt-in bursts of high chaos for high reward, which are input randomness because the player accepts the terms before the window starts. Supersedes the timed-effects half of *XP bar and roguelite upgrades*; the rest of that entry stands.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Depot fiction, contracts, and three new sorting mechanics
+
+- Status: proposed
+- Context: A batch of thematic and structural proposals for the night-shift depot fiction. Triaged here so the workable parts are recorded with their reasoning and the rest does not have to be re-argued later.
+- Evidence and assessment:
+  - **Memo board framing** — presenting the shop as pinned depot memos rather than as cards. Pure naming, no mechanical cost, and consistent with the results screen, which already prints a dot-matrix manifest with a rubber-stamp verdict. Free.
+  - **Shift reports and performance badges** — end-of-run summaries styled as workplace evaluations, with efficiency ratings and incident counts. This *extends what already exists*: `RunSummary.verdict` already stamps `PROBATIONARY`, `CLEARED` or `EMPLOYEE OF THE SHIFT`. Cheapest good idea in the batch.
+  - **Daily fixed-seed challenge — local only.** Every run is already fully seeded, so a seed derived from the date costs nothing. **The global leaderboard half is rejected**: the scope ceiling allows zero backend calls and v1 excludes online leaderboards.
+  - **Quota contracts** — opt into sorting a target clean for a large payout, forfeiting the segment's pay on failure. Strong, and worth noting that it is **the already-approved double-or-nothing wager relocated from the results screen into the run**, not a new system.
+  - **Hazardous cargo** — packages valid in two chutes and forbidden in a third. Still one tap on the front-most package, still deterministic, and it flips the task from finding the right answer to avoiding the wrong one, which is different cognitive work. Fits the existing `RoutingRule` model.
+  - **Scanner reveal** — package labels hidden until they pass a reveal point near the sort line. The sharpest of the batch: it compresses the *effective* read window without touching the read window itself, and it interacts directly with clutch saves. Expressible as a single progress threshold.
+  - **Visual workstation degradation** — flickering lights and steam tracking chaos and belt speed. Passes the play-field effects test, since it carries information about the run's state rather than decorating it. But it is exactly the particle work flagged as the mid-range frame-rate trap against §11.13's 60fps target, and assets must be procedural under the zero-art ceiling. **Design freely, measure on a device before building.**
+  - **Label rotation** — rejected on inspection rather than on principle. The shape vocabulary is circle, triangle and square: a rotated circle is identical, and a square rotated by ninety degrees is identical. The mechanic only reads on one shape in three, so it would need a different shape set to earn its place.
+- Options considered: adopt wholesale; triage; reject wholesale.
+- Decision: none yet. Recommendation is to take the three free presentation wins, and to treat quota contracts, hazardous cargo and the scanner reveal as the three mechanics worth designing properly.
+- Consequences: None of this is scheduled. The approved-but-unbuilt queue already holds the endless shop, `PRIORITY`, level 10, the wager and the audio pipeline, and no human has yet played more than a few minutes of the game.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Four proposals rejected against standing decisions
+
+- Status: rejected (human gate, 2026-08-17)
+- Context: Recorded so these do not return in a month without the counter-argument attached. Each conflicts with a decision already approved, rather than merely being unappealing.
+- Evidence:
+  - **VIP packages that break queue order.** *Control model: tap-the-bin with front-most active package* was approved at Gate 2, and free selection of any visible package was explicitly rejected there. The engine can only route the front-most package, so a VIP that must be sorted first while not being front-most is unroutable. This requires reopening the control model, not adding a card.
+  - **Fragile heavyweights needing a hold-and-drag or double-tap.** `docs/product-brief.md` rejected drag routing by name — "precision dragging of a moving object... hostile to one-thumb portrait play" — and `docs/design-system.md` states that unusual transitions are acceptable but unusual core controls are not. Double-tap is more defensible than drag but is still a second control verb in a deliberately one-verb game.
+  - **Strobe and blackout phases.** `docs/design-system.md` requires avoiding rapid flashing. That is an accessibility rule, not a preference. A slow dim would be arguable; pulsing or flickering light as a mechanic is not.
+  - **A permanent unlock tree spending pay across runs.** Rejected twice already — under *Pay and powerups* and again under the endless shop decision. `CLAUDE.md` forbids that machinery until repeat play has been demonstrated by human testing, v1 excludes complex inventory, and persistent purchased power makes runs incomparable, which directly undermines the pitch of beating your own best run.
+- Options considered: adopt each; reject each with the standing decision cited.
+- Decision: All four rejected. Any of them can return, but only by reopening the specific approved decision it contradicts.
+- Consequences: The control model, the one-verb input rule, the no-flashing accessibility rule and the no-persistence rule are all load-bearing for more than these four ideas, so reopening any of them is a larger decision than the feature that prompted it.
+- Owner/gate: human — Gate 4.

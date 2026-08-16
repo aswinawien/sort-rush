@@ -1,3 +1,4 @@
+import 'difficulty.dart';
 import 'level_config.dart';
 import 'pass_condition.dart';
 import 'package_spec.dart';
@@ -219,3 +220,42 @@ final List<LevelConfig> kCuratedLevels = [
 
 LevelConfig levelById(int id) =>
     kCuratedLevels.firstWhere((level) => level.id == id);
+
+/// The endless shift.
+///
+/// Deliberately **not** in [kCuratedLevels]: it has no teaching objective, no
+/// pass target, and no fixed numbers, so every guard in `levels_test.dart`
+/// that reasons about the ladder would be asking it the wrong questions.
+///
+/// Its chutes are the compound set from shifts 8 and 9, held fixed for the
+/// whole run. The spec's pressure-indexed "kind unlocks" would change the
+/// routing rule mid-run, which changes what the chutes mean while packages are
+/// in flight — the same failure the silent shape-shift was rejected for. That
+/// deviation is recorded in `docs/decision-log.md` and is not implemented here.
+final LevelConfig kEndlessShift = LevelConfig(
+  id: 0,
+  title: 'NIGHT SHIFT',
+  objective: 'Last as long as you can',
+  tutorialCopy: 'NO QUOTA.\nNO END OF SHIFT.',
+  routing: CompoundRouting(const [
+    PackageSpec(shape: PackageShape.circle, colorIndex: 0),
+    PackageSpec(shape: PackageShape.circle, colorIndex: 1),
+    PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
+  ]),
+  shapes: const [PackageShape.circle, PackageShape.triangle],
+  colors: const [0, 1],
+  spawnPool: const [
+    PackageSpec(shape: PackageShape.circle, colorIndex: 0),
+    PackageSpec(shape: PackageShape.circle, colorIndex: 1),
+    PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
+  ],
+  // Starting values only. The curve owns these from the first sort onward.
+  readWindow: 4.0,
+  spawnInterval: 2.4,
+  maxActive: 1,
+  mistakeLimit: 3,
+  passCondition: const Survive(),
+  chaosRate: 0.20,
+  telegraphSeconds: 0.8,
+  curve: const EndlessCurve(),
+);
