@@ -29,6 +29,7 @@ void main() {
       expect(score.registerCorrect(), 10);
       expect(score.score, 10);
       expect(score.sorted, 1);
+      expect(score.pay, 1);
     });
 
     test('the sort that completes a tier pays the higher rate', () {

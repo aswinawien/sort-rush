@@ -10,9 +10,9 @@ enum FillPattern { solid, hatch, dotted }
 
 /// Rule modifiers that outrank the base routing rule.
 ///
-/// Not used by levels 1-3. Present so the routing layer has a stable shape
-/// when stamps arrive in Milestone 4; [PackageStamp.none] is the only value
-/// the prototype ever constructs.
+/// [PackageStamp.priority] flips which attribute a compound rule reads, so
+/// the reflex pair is the wrong chute. [PackageStamp.damaged] is a
+/// telegraphed morph. The two never appear on the same package.
 enum PackageStamp { none, priority, damaged }
 
 /// An immutable description of one package.

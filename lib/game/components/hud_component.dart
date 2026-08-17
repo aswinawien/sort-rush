@@ -1,6 +1,8 @@
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
+import '../../core/machine_intensity.dart';
+import '../../core/shop.dart';
 import '../../ui/theme.dart';
 import '../sort_rush_game.dart';
 import '../text_util.dart';
@@ -47,7 +49,13 @@ class HudComponent extends PositionComponent
 
   final _CachedText _ghostText = _CachedText();
   final _CachedText _scoreText = _CachedText();
+  final _CachedText _scoreCyan = _CachedText();
+  final _CachedText _scoreMagenta = _CachedText();
   final _CachedText _comboText = _CachedText();
+  final _CachedText _comboCyan = _CachedText();
+  final _CachedText _comboMagenta = _CachedText();
+  final _CachedText _payText = _CachedText();
+  final _CachedText _chipText = _CachedText();
   final _CachedText _noticeText = _CachedText();
 
   /// Reused across pips and frames. Every property is set on each use.
@@ -97,25 +105,131 @@ class HudComponent extends PositionComponent
       fontSize: 44 + _scorePulse * 6,
     );
 
+    const scoreOrigin = Offset(16, 10);
+    final split = game.reduceMotion
+        ? 0.0
+        : MachineIntensity.comboSplitPx(score.comboTier);
+
     if (_glitch > 0) {
+      // A mistake owns the score for a beat — warn ghost, not the roll split.
       final ghost = _ghostText.layout(
         '${score.score}',
         scoreStyle.copyWith(color: Tokens.warn.withValues(alpha: 0.8)),
       );
       ghost.paint(canvas, Offset(16 + _glitch * 14, 10 - _glitch * 3));
+    } else if (split > 0) {
+      _scoreCyan
+          .layout(
+            '${score.score}',
+            scoreStyle.copyWith(color: Tokens.hues[0].withValues(alpha: 0.7)),
+          )
+          .paint(canvas, scoreOrigin.translate(-split, 0));
+      _scoreMagenta
+          .layout(
+            '${score.score}',
+            scoreStyle.copyWith(color: Tokens.hues[1].withValues(alpha: 0.7)),
+          )
+          .paint(canvas, scoreOrigin.translate(split, 0));
     }
 
     final scoreText = _scoreText.layout('${score.score}', scoreStyle);
-    scoreText.paint(canvas, const Offset(16, 10));
+    scoreText.paint(canvas, scoreOrigin);
 
     final comboStyle = Tokens.label.copyWith(
       color: score.comboTier > 1 ? Tokens.acid : Tokens.mute,
       fontSize: 13 + _comboPulse * 3,
     );
-    final combo = _comboText.layout('COMBO x${score.comboTier}', comboStyle);
-    combo.paint(canvas, Offset(18, 12 + scoreText.height));
+    final comboLabel = 'COMBO x${score.comboTier}';
+    final comboOrigin = Offset(18, 12 + scoreText.height);
+    if (split > 0) {
+      _comboCyan
+          .layout(
+            comboLabel,
+            comboStyle.copyWith(color: Tokens.hues[0].withValues(alpha: 0.7)),
+          )
+          .paint(canvas, comboOrigin.translate(-split, 0));
+      _comboMagenta
+          .layout(
+            comboLabel,
+            comboStyle.copyWith(color: Tokens.hues[1].withValues(alpha: 0.7)),
+          )
+          .paint(canvas, comboOrigin.translate(split, 0));
+    }
+    final combo = _comboText.layout(comboLabel, comboStyle);
+    combo.paint(canvas, comboOrigin);
+
+    if (engine.level.curve != null) {
+      final barY = 12 + scoreText.height + combo.height + 8;
+      _renderPressure(canvas, 18, barY);
+      _renderPay(canvas, 18, barY + 10, engine.score.pay);
+      _renderPins(canvas, 18, barY + 26, engine.pinned);
+    }
 
     _renderMistakes(canvas, score.mistakes);
+  }
+
+  void _renderPressure(Canvas canvas, double x, double y) {
+    const width = 88.0;
+    const height = 3.0;
+    final fill = game.engine.pressureProgress.clamp(0.0, 1.0);
+    canvas.drawRect(
+      Rect.fromLTWH(x, y, width, height),
+      _pipPaint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Tokens.mute,
+    );
+    if (fill > 0) {
+      canvas.drawRect(
+        Rect.fromLTWH(x, y, width * fill, height),
+        _pipPaint
+          ..style = PaintingStyle.fill
+          ..color = Tokens.acid,
+      );
+    }
+  }
+
+  void _renderPay(Canvas canvas, double x, double y, int pay) {
+    final payText = _payText.layout('PAY $pay', Tokens.label);
+    payText.paint(canvas, Offset(x, y));
+  }
+
+  void _renderPins(
+    Canvas canvas,
+    double x,
+    double y,
+    List<CardSpec> pinned,
+  ) {
+    if (pinned.isEmpty) {
+      return;
+    }
+    final overflow = pinned.length > 3;
+    final shown = overflow ? pinned.take(2) : pinned.take(3);
+    var cursor = x;
+    const gap = 6.0;
+    const pad = 5.0;
+    final chipStyle = Tokens.label.copyWith(
+      color: Tokens.ink,
+      fontSize: 10,
+      letterSpacing: 1,
+    );
+    for (final card in shown) {
+      final label = _chipText.layout(card.chip, chipStyle);
+      final width = label.width + pad * 2;
+      final height = label.height + pad;
+      canvas.drawRect(
+        Rect.fromLTWH(cursor, y, width, height),
+        _pipPaint
+          ..style = PaintingStyle.fill
+          ..color = Tokens.paper,
+      );
+      label.paint(canvas, Offset(cursor + pad, y + pad / 2));
+      cursor += width + gap;
+    }
+    if (overflow) {
+      final more = _chipText.layout('·${pinned.length - 2}', chipStyle);
+      more.paint(canvas, Offset(cursor, y + pad / 2));
+    }
   }
 
   void _renderMistakes(Canvas canvas, int mistakes) {

@@ -69,6 +69,22 @@ void main() {
       expect(six.telegraphSeconds, 1.0);
     });
 
+    test('level 10 teaches the PRIORITY override', () {
+      final ten = levelById(10);
+      expect(ten.readWindow, 2.0);
+      expect(ten.spawnInterval, 0.95);
+      expect(ten.maxActive, 4);
+      expect(ten.mistakeLimit, 3);
+      expect(
+        ten.passCondition,
+        const EveryOf([SortTarget(30), ComboTarget(4)]),
+      );
+      expect(ten.binCount, 3);
+      expect(ten.priorityRate, 0.30);
+      expect(ten.chaosRate, lessThanOrEqualTo(levelById(5).chaosRate));
+      expect(ten.telegraphSeconds, 0.5);
+    });
+
     test('level 1 cannot be failed', () {
       // A player who fails inside the first thirty seconds of their first
       // launch does not come back.

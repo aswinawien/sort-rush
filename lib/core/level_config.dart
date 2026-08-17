@@ -23,9 +23,14 @@ class LevelConfig {
     required this.passCondition,
     this.chaosRate = 0.0,
     this.telegraphSeconds = 0.0,
+    this.priorityRate = 0.0,
     this.spawnPool,
     this.curve,
   })  : assert(chaosRate >= 0 && chaosRate <= 1, 'chaosRate is a probability'),
+        assert(
+          priorityRate >= 0 && priorityRate <= 1,
+          'priorityRate is a probability',
+        ),
         assert(
           chaosRate == 0 || telegraphSeconds > 0,
           'chaos without a telegraph is a coin flip, not a skill',
@@ -85,6 +90,11 @@ class LevelConfig {
   /// Chance that a spawned package is `DAMAGED` and will change shape in
   /// transit. Zero for every level until the chaos ramp is gated.
   final double chaosRate;
+
+  /// Chance that a spawned package is stamped `PRIORITY`. Mutually exclusive
+  /// with [chaosRate] at spawn: two "the obvious answer is wrong" mechanics
+  /// on one package read as arbitrary.
+  final double priorityRate;
 
   /// How long a `DAMAGED` package shows its corrupted state before it
   /// changes.

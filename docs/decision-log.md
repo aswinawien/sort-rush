@@ -371,7 +371,7 @@ Record decisions as append-only entries.
 
 ### 2026-08-17 — Dynamic chutes in endless: count progression, lane swapping, morphing
 
-- Status: proposed
+- Status: approved (human gate, 2026-08-17) — option (c)
 - Context: Human proposal to expand beyond a fixed three-chute layout in endless, on the argument that fixed layouts hit an autopilot ceiling where muscle memory takes over and the game becomes a rhythm exercise. Three mechanics were proposed: chute count progression (2→4), lane swapping (two chutes exchange positions on a warning), and chute morphing (a chute changes what it accepts).
 - Evidence:
   - The autopilot argument is sound and is the strongest case yet for this. Every other pressure in the game escalates *speed* — read window, spawn interval, packages on the belt. Changing the board is the only proposal that escalates *uncertainty*, which is a different axis and the one most likely to make endless read as its own mode.
@@ -380,17 +380,17 @@ Record decisions as append-only entries.
   - Endless currently uses `CompoundRouting` with three chutes owning three specific (shape, hue) pairs, so a two-chute opening cannot use that rule and needs its own routing set.
   - Levels 8–10 were proposed as the teaching slots. **All three are already booked** — 8 is compound reading, 9 is `PRIORITY`, 10 is the shop preview — and level 10 does not exist while `PRIORITY` is unimplemented. The ten-level ladder is the scarce resource here, not the ideas.
 - Options considered: (a) all three mechanics; (b) count progression only; (c) count progression and lane swapping, rejecting morphing; (d) none.
-- Decision: none yet. **(c) is the recommendation.**
-  - **Count progression** is the strongest and the cheapest to reason about. Needs a ceiling ruling and a routing set for a two-chute opening.
-  - **Lane swapping** is viable under one rule, stated below. Cadence of 20–30s over a 2–4 minute run gives 4–8 swaps, which is reasonable.
-  - **Morphing is recommended against.** It is `DAMAGED` applied to the chute rather than the package, and the blast radius is categorically different: a corrupted *package* changes one answer the player can see and wait out, while a morphing *chute* changes the answer for everything on the belt at once. It also does the same cognitive work as `PRIORITY`, which flips which attribute is read. Two mechanics both meaning "the rule just changed" tend to read as noise rather than depth.
+- Decision: **Option (c).** Count progression and lane swapping; morphing rejected.
+  - **Count progression** opens at two compound pairs and grows to three at `P=18`, four at `P=45`. The two-chute opening is the colour-switch the player already learned, not a new rule.
+  - **Lane swapping** every 25s of running time, two slots exchanging identity. Cadence of 20–30s over a 2–4 minute run gives 4–8 swaps.
+  - **Morphing is rejected.** It is `DAMAGED` applied to the chute rather than the package, and the blast radius is categorically different: a corrupted *package* changes one answer the player can see and wait out, while a morphing *chute* changes the answer for everything on the belt at once. It also does the same cognitive work as `PRIORITY`, which flips which attribute is read. Two mechanics both meaning "the rule just changed" tend to read as noise rather than depth.
 - **The telegraph rule, which is the load-bearing part**: the proposal suggested a fixed 1.5–2s warning. The correct rule is that **the telegraph must be at least as long as the current read window**. If it is, every package on the belt spawned *after* the warning appeared, so nobody was ever committed under the old layout — which is what converts a chute change from output randomness into input randomness. A fixed 1.5–2s happens to clear the 1.20s endless floor, but early in a run the read window is 4.0s and a 2s warning would leave packages mid-flight that were read under the old chutes. Express it as `telegraph >= tuning.readWindow`, not as a constant.
-- Consequences: Any of this needs a ceiling ruling first. The alternative that costs no ceiling change is to keep three chutes and vary what they *contain* through the spawn pool, which is already how the endless kind-unlock deviation is proposed to work.
+- Consequences: The bins-on-screen ceiling is raised for endless only: curated stays at 3, endless may show 2–4. Telegraph is `>=` the live read window, frozen when the warning starts. Curated levels never move their chutes.
 - Owner/gate: human — Gate 4.
 
 ### 2026-08-17 — XP bar and roguelite upgrades: what fits, and what would break
 
-- Status: proposed
+- Status: approved (human gate, 2026-08-17) — option (b)
 - Context: Human proposal for a Vampire Survivors-style XP bar feeding a mid-run three-card shop, with a set of candidate upgrades. Much of it converges with the already-approved endless shop; a few items would break mechanics that are already built.
 - Evidence and assessment, item by item:
   - **The XP bar already exists — it is the pressure index `P`.** `RunEngine.pressure` is `score.sorted`, it increments per correct sort, it never decreases, and it already drives the difficulty curve and the shop thresholds. Presenting it as a filling bar is a **presentation change, not a new system**, and it should not become a third counter alongside score and pay. Two currencies are already the most this run length can carry.
@@ -404,8 +404,8 @@ Record decisions as append-only entries.
   - **`Chute Lock`** depends on lane swapping, which is unruled.
 - **The framing point, recorded because it is a design decision and not a detail.** The proposal argues the shop's value is a "variable ratio reward (the slot machine effect)" producing "a natural dopamine spike". That is precisely what Frank Lantz's Balatro essay warns about — that such systems work "by manipulating the cause and effect mechanism in your brain" — and `CLAUDE.md` forbids monetization until repeat play has been demonstrated by human testing, with that machinery being the concern. A shop that presents a real decision and a shop tuned to produce anticipation spikes are different products. The pitch, "prove you can beat your own best run", is a skill claim. **The recommendation is to keep designing for the decision and let any dopamine be a side effect rather than the target.**
 - Options considered: (a) adopt the upgrade set as proposed; (b) adopt the XP presentation and the pacing, reject the four upgrades that decide outcomes for the player, keep the planned give-and-take card set; (c) reject wholesale.
-- Decision: none yet. **(b) is the recommendation.**
-- Consequences: Under (b) the only new work is presentational — drawing `P` as a filling bar — plus the shop already planned. No new counter, no new currency, and no upgrade that plays the game on the player's behalf.
+- Decision: **Option (b).** Draw `P` as a filling bar; reject Auto-Sorter, Magnet, Shield-as-written, and Fever Time. Keep designing the shop for the decision, not for a slot-machine spike.
+- Consequences: The only new work in this slice is presentational — drawing `P` as a filling bar. No new counter, no new currency, and no upgrade that plays the game on the player's behalf. The shop remains the already-approved unbuilt system.
 - Owner/gate: human — Gate 4.
 
 ### 2026-08-17 — Correction: the ban on timed effects was too broad
@@ -420,7 +420,7 @@ Record decisions as append-only entries.
 
 ### 2026-08-17 — Depot fiction, contracts, and three new sorting mechanics
 
-- Status: proposed
+- Status: approved (human gate, 2026-08-17) — triage; free wins this slice
 - Context: A batch of thematic and structural proposals for the night-shift depot fiction. Triaged here so the workable parts are recorded with their reasoning and the rest does not have to be re-argued later.
 - Evidence and assessment:
   - **Memo board framing** — presenting the shop as pinned depot memos rather than as cards. Pure naming, no mechanical cost, and consistent with the results screen, which already prints a dot-matrix manifest with a rubber-stamp verdict. Free.
@@ -432,8 +432,8 @@ Record decisions as append-only entries.
   - **Visual workstation degradation** — flickering lights and steam tracking chaos and belt speed. Passes the play-field effects test, since it carries information about the run's state rather than decorating it. But it is exactly the particle work flagged as the mid-range frame-rate trap against §11.13's 60fps target, and assets must be procedural under the zero-art ceiling. **Design freely, measure on a device before building.**
   - **Label rotation** — rejected on inspection rather than on principle. The shape vocabulary is circle, triangle and square: a rotated circle is identical, and a square rotated by ninety degrees is identical. The mechanic only reads on one shape in three, so it would need a different shape set to earn its place.
 - Options considered: adopt wholesale; triage; reject wholesale.
-- Decision: none yet. Recommendation is to take the three free presentation wins, and to treat quota contracts, hazardous cargo and the scanner reveal as the three mechanics worth designing properly.
-- Consequences: None of this is scheduled. The approved-but-unbuilt queue already holds the endless shop, `PRIORITY`, level 10, the wager and the audio pipeline, and no human has yet played more than a few minutes of the game.
+- Decision: Take the three free presentation wins this slice. Quota contracts, hazardous cargo and the scanner reveal stay designed-not-built — they need their own entries before code. Label rotation stays rejected. Workstation degradation stays measure-before-building.
+- Consequences: Daily seed and a thicker endless shift report ship now. Memo-board naming waits on the shop. The approved-but-unbuilt queue still holds the shop, `PRIORITY`, level 10, the wager, audio, and those three mechanics.
 - Owner/gate: human — Gate 4.
 
 ### 2026-08-17 — Four proposals rejected against standing decisions
@@ -484,4 +484,116 @@ Record decisions as append-only entries.
 - Options considered: (a) shift the entry point only, leaving the formulas; (b) two phases in the order the spec already states; (c) leave it.
 - Decision: Option (b). Phase one closes the spawn gap from 1.10 to 0.65 while the read window holds at 2.60, so the belt crowds. Phase two holds the spawn gap and closes the read window from 2.60 to 1.20, so the reading time collapses. `A(P)` is dropped entirely; `RunTuning.maxActiveCeiling` remains as the only cap.
 - Consequences: **Phase one is a queue problem and phase two is a reaction problem** — a genuinely different second half rather than the same half played faster, which is what the spec's escalation rule was describing all along. Endless now opens at level 9's spawn interval instead of half its difficulty. Maximum pressure arrives in roughly 95–110s against the spec's stated ~130s. The numbers remain unmeasured first-pass guesses like the rest of that table. `docs/level-spec.md` needs its formulas replaced on approval; the old ones are superseded, not merely edited.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Gate 4 open proposals implemented
+
+- Status: approved (human gate, 2026-08-17) — "let's implement the awaiting a ruling"
+- Context: Three entries were still `proposed`. The human asked to implement them. The recommended option of each was taken rather than inventing a fourth.
+- Evidence: recorded in the three preceding entries.
+- Options considered: recorded there.
+- Decision: Dynamic chutes option (c); XP bar option (b); depot fiction triage with free wins this slice. Ceiling for bins on screen becomes **3 curated, 2–4 endless**. Quota contracts, hazardous cargo, scanner reveal, the shop, `PRIORITY`, and level 10 stay out of this slice.
+- Consequences: Endless opens on two chutes and grows; lanes swap on a telegraph at least as long as the live read window; `P` is a bar not a third number; today's endless run is seeded from the UTC date.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Approved slice shipped: PRIORITY, level 10, shop, wager
+
+- Status: approved (human gate, 2026-08-17) — "let's build the approved"
+- Context: The remaining approved-and-unbuilt queue was the interlocking trio (the shop, `PRIORITY`, level 10) plus the results-screen wager and audio. Audio stays out: Suno's commercial-use terms have not been recorded against the Play release, which the audio decision named as a gate before any audio ships.
+- Evidence: `PRIORITY` is a compound Stroop — the stamp sends the package to the chute matching the *other* attribute, so the reflex pair is a misroute. Level 10 (`RUSH JOB`) teaches it at 0.30 density with chaos diluted to 0.20. Endless unlocks it at `P=65`. The shop opens on a drained belt at blinds 22 / 50 / 80, draws three memos from its own `SeededRng` (`seed ^ 0x51A70FF`), and skip is always legal. The extra-chute card was not included: it would breach the 2–4 endless bins ceiling. The wager is an opt-in replay after a curated clear; fail posts 0, pass posts 2×.
+- Options considered: recorded in the shop, `PRIORITY`/L10, and wager entries.
+- Decision: Ship the interlocking trio and the wager. Leave audio, quota contracts, hazardous cargo, and the scanner reveal unbuilt.
+- Consequences: The ten-level ladder is complete. Endless is the mode the shop was approved for. Replay of an endless run is now seed plus taps plus shop choices. Routing during an endless run still goes through `engine.binFor`.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Gate 4 outcome: Milestone 4 held or accepted
+
+- Status: proposed
+- Context: The human asked to run Gate 4. Evidence is in `docs/milestone-4-gate.md`. Criteria are the `CLAUDE.md` sentence: onboarding, endless mode, persistence, feedback, device test.
+- Evidence: `flutter analyze` clean and 252 tests passing at the time of the packet. Onboarding and endless carry direct evidence. Persistence is unbuilt (`shared_preferences` is not even a dependency; home has no best-run readout). Feedback is visual-only; audio is approved and blocked on Suno terms. Device test is emulator smoke plus one developer web play that said "looks good"; the questionnaire is unanswered and the fairness floors are untimed. The release AAB was verified 2026-08-17, which closes a side criterion from the target-API decision, not the five in `CLAUDE.md`.
+- Options considered: (a) hold until the missing criteria land; (b) accept with the gaps recorded, Gate 3's pattern; (c) narrow the words so visual feedback and qualitative play count, and persistence moves somewhere Milestone 5 does not name.
+- Decision: none yet. (a) is the recommendation. Gate 3 accepted one gap of six. Accepting here would close two of five and inherit persistence into a milestone that is listing, testers, and a signed AAB. (c) rewrites the constitution without a constitution change.
+- Consequences of (a): Milestone 4 stays open. Next build slice is persistence — best run only; do not invent unlock-gating endless. Audio stays out until Suno Play terms are recorded, or is explicitly deferred by a later ruling. A device session that fills the questionnaire and times 1.20s / 0.65s stays required before a later close. Milestone 5 does not start.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Memo board presentation: zine slips, held combo, pinned chips
+
+- Status: approved (human gate, 2026-08-17) — "let's implement it"
+- Context: The shipped shop is a settings list wearing depot copy. The human generated Stitch frames and asked whether they were good, then asked to plan the keepers into the design. The constitution identity is *a zine that learned to run a precise arcade machine*, not a CRT skin. The shop is a Flutter overlay (60% experimentation). The belt stays 20/80.
+- Evidence: Current `_MemoBoard` is a `ColoredBox` and three bordered `InkWell`s. Combo turns `acid` at `x2` and pulses on tier-up; the channel-split is spent on mistakes. Shop buys collapse into a silent `TuningDelta` — `RunEngine` does not keep the pinned cards, so the HUD cannot tell the player what they bought. Stitch's shop frame matches the approved memo-board fiction (canted paper, acid tacks, `PAY` sticker, perforated `WALK ON`, static headline split). Stitch's play frames invented a target ring, magazine-card chutes, a `COST` stamp on a bin, a light play field, and neon package halos — all of which fight §5.2 and "color is never load-bearing."
+- Options considered:
+  - (a) **Adopt the presentation slice.** Restyle the memo board as specified in `docs/design-spec.md` §5.5. Hold a static 2px cyan/magenta split on `COMBO xN` while tier ≥ 2. Engine keeps a `pinned` list; HUD draws up to three short-title chips under `PAY`, overflow `·N`. Scan lines and a 2px offset rule live on the shop *wall*, not on the slips. Reduce-motion drops both splits and keeps color + chips.
+  - (b) **Shop restyle only.** Leave combo and the HUD as they are. Cheaper, and leaves the "what did I buy?" hole open.
+  - (c) **Reject.** Keep the list shop. The identity stays underserved and the Stitch pass is wasted.
+- Decision: Option (a). Restyle the memo board, hold the combo split, keep a `pinned` list.
+- Consequences if (a) is approved:
+  - `docs/design-spec.md` §5.2 / §5.5 / §7 and the novelty-budget line in `docs/design-system.md` become the build spec.
+  - Rejected Stitch ideas stay rejected: target ring, card chutes, cost-stamped bins, light belt, package halos, `SHOP`/`REROLL` copy, animated glitch.
+  - Tests: shop widget coverage that does not exist yet (affordable / unaffordable / skip); a HUD test that combo at `x1` is registered and at `x2` is split; a core test that `pinned` matches the buy timeline and the same seed plus the same buys reproduces it.
+  - Does not close Gate 4. Does not start persistence or audio.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Machine intensity on a roll: ink belt, stepped scan lines
+
+- Status: approved (human gate, 2026-08-17) — "let's implement it"
+- Context: Amends the still-proposed *Memo board presentation* slice. The human looked at a Stitch play frame with a white belt and a glitched `x3`, and asked for a black background plus a glitch while the `P` bar is filling and a combo is on a roll.
+- Evidence: The design system already assigns paper to Flutter surfaces and the machine to the belt. A white play field is the Stitch invention already rejected in §5.2. Rapid flashing is forbidden. Per-frame jitter on the belt is the thing that looks like a CRT screensaver and the thing that drops frames. A *stepped* treatment tied to numbers the player can already see (`P` fill, combo tier) is information: the wall gets noisier as the run does. `comboStep` of `0 / 0.25 / 0.40 / 0.55 / 0.70` at `x1`–`x5`, scanline opacity `0.12 × max(pFill, comboStep)`, combo split `0 / 2 / 2 / 3 / 3` px. A broken combo snaps to quiet. Reduce-motion zeros the intensity.
+- Options considered: (a) fold this into presentation option (a) — ink belt, stepped machine intensity, held combo split scales with tier; (b) animate a per-frame channel jitter while combo ≥ 2 — rejected against the no-flashing rule and §11.13; (c) glitch only the `xN` badge and leave the belt flat — cheaper, weaker "on a roll" read; (d) adopt the white Stitch belt — rejected, play is `ink`.
+- Decision: Option (a), as one slice with the memo-board restyle.
+- Consequences: `HudComponent` and the belt background read `pressureProgress` and `comboTier` through `MachineIntensity`. No new RNG. No new mechanic. Packages and chutes stay clean. Reduce-motion zeros the intensity.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Presentation slice shipped: memo board, combo hold, machine intensity
+
+- Status: approved (human gate, 2026-08-17) — "let's implement it"
+- Context: The two preceding entries were still `proposed`. The human asked to implement them.
+- Evidence: `flutter analyze` clean. 265 tests passing. `RunEngine.pinned` records buys in order. `MachineIntensity` is pure Dart. `MemoBoard` is a Flutter overlay. Combo split and belt scan lines honor `MediaQuery.disableAnimations`.
+- Options considered: recorded in the two preceding entries.
+- Decision: Ship the slice. Leave Gate 4 unruled. Leave persistence and audio unbuilt.
+- Consequences: Replay of an endless run is still seed plus taps plus shop choices; `pinned` is a consequence of `buy`. The white Stitch belt, target ring, and card chutes were not built.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Score carries the held split on a roll
+
+- Status: approved (human gate, 2026-08-17) — "i mean the score bro"
+- Context: The presentation slice put the channel split on `COMBO xN` only. The human pointed at Stitch frames where the **score numeral** is the thing that misregisters when a combo is live.
+- Evidence: The approved rule was "score does not glitch on combo." That kept a mistake's warn ghost readable. The human wants the roll to live on the number they are actually chasing.
+- Options considered: (a) held 2–3px cyan/magenta split on the score while combo ≥ 2, same steps as combo, warn ghost still replaces it for a beat on a mistake; (b) the animated clip-rect / flicker from the Stitch HTML — rejected, flashing; (c) leave score clean.
+- Decision: Option (a).
+- Consequences: `HudComponent` paints the score split from `MachineIntensity.comboSplitPx`. Reduce-motion still zeros it. PAY and the pips stay registered.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Development mode jumps for UI review
+
+- Status: approved (human gate, 2026-08-17) — "Implement the plan as specified"
+- Context: The memo board, score split, pinned chips, and machine intensity cannot be judged from shift 1. Grinding to `P=22` or combo `x5` is the wrong way to review paint.
+- Evidence: Widget tests are always debug, so a release-hidden strip must be an explicit `showDevTools` flag, not a `kDebugMode` check inside the test. The engine already owns shop draws and combo; a review jump that fakes those in Flutter would lie about the thing being reviewed.
+- Options considered: (a) debug-only Home strip with four jumps — memo, roll, results, pause; (b) always-visible button — rejected, it would ship on Play; (c) wait for Settings — Settings is unbuilt and is the quiet screen, not a debug harness.
+- Decision: Option (a). `kDebugMode` only. Mute copy, under the endless row, never on `PUNCH IN`. Release AAB shows nothing. Not a Settings feature, not an unlock, not persistence.
+- Consequences: `RunEngine.debugOpenShop` and `debugForceRoll` exist and are unused by any release path. Home's `showDevTools` defaults to `kDebugMode`. Does not close Gate 4. Does not start Settings, audio, or persistence.
+- Owner/gate: human — Gate 4.
+- Verified 2026-08-17: `flutter analyze` clean. 275 tests passing. Release path is `showDevTools: false`.
+
+### 2026-08-17 — Pay and hazard pay on the shift manifest
+
+- Status: approved (human gate, 2026-08-17) — "a"
+- Context: After an endless run the human asked to print pay on the results slip, and to treat combo as hazard pay. The captured report already has `BEST COMBO x5` and `SCORE 2580`. It does not mention `PAY`.
+- Evidence: `PAY` is within-run shop cash. Every run starts at 0; leftovers die with the run. That was approved with the endless shop. Combo already multiplies the sort (`10 × tier`) and is the number the pitch chases; `BEST COMBO` is already a manifest line. Two currencies — score and pay — were named as the ceiling this run length can carry (`XP bar and roguelite upgrades`). Banking pay across runs is rejected (`Four proposals rejected`). Persistence, when it ships, is best-run score, not a wallet. `RunSummary` does not currently carry `pay`. Quota contracts (designed-not-built) talk about a "payout" and should not be invented here as a third number.
+- Options considered:
+  - (a) **Print only.** Endless manifest gains `PAY N` (leftover wallet) and `HAZARD PAY xN` as the combo line — copy, not new math. Score stays the posted number. Curated reports stay as they are; they never spend `PAY`.
+  - (b) **Pay out after the whistle.** Leftover `PAY` and/or a combo-derived hazard bonus are *added* to `postedScore`. That double-counts combo (already inside score) and turns unspent shop cash into points after the player already chose to walk on or pin. Changes what "beat your best" means.
+  - (c) **Bank `PAY` into the next run or an unlock.** Rejected by standing decisions. Do not reopen here.
+  - (d) **Do not add.** The slip already reports combo and score. `PAY` is a mid-run tool; a dead wallet on the manifesto is a number with nowhere to go.
+- Decision: Option (a).
+- Consequences: `RunSummary` grows a `pay` field. Two copy lines on the endless report. No new currency, no score change, no persistence. Does not close Gate 4. Does not start quota contracts.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Manifest types like a depot printer
+
+- Status: approved (human gate, 2026-08-17) — "also can you add this animation?"
+- Context: The human handed a Stitch HTML results frame whose load-bearing move is a character typewriter with a blinking cursor. The mock also jittered every 0.1s and rolled `Math.random()` for type speed.
+- Evidence: The slip already printed one line every 40ms. Reduce-motion must skip printing. `dart:math` `Random` is forbidden; replay from a seed is an acceptance criterion. Per-frame jitter is the CRT-screensaver class already rejected for combo and the belt. A 1s step-end cursor blink is not rapid flashing.
+- Options considered: (a) type characters on a fixed 24ms cadence, blink a block cursor, keep tap-to-skip and reduce-motion instant print — drop jitter and `Math.random()`; (b) port the HTML literally, including jitter and random delays; (c) leave line-at-a-time.
+- Decision: Option (a).
+- Consequences: The headline is part of the typed sequence. Tests skip by tap, not by pumping 500ms. Score, pay, and hazard pay are unchanged. Does not close Gate 4.
 - Owner/gate: human — Gate 4.

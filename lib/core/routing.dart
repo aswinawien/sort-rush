@@ -101,6 +101,51 @@ class ColorRouting implements RoutingRule {
 
 String _letter(int index) => String.fromCharCode(65 + index);
 
+/// Exact pair match, ignoring stamps. Used as the reflex answer.
+int exactCompoundBin(List<PackageSpec> order, PackageSpec package) {
+  for (var i = 0; i < order.length; i++) {
+    if (order[i].shape == package.shape &&
+        order[i].colorIndex == package.colorIndex) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/// Compound routing, with `PRIORITY` flipping which attribute wins.
+///
+/// The stamp is a Stroop conflict: the pair is the reflex, and the stamp
+/// outranks it by sending the package to the chute that matches the *other*
+/// attribute — hue without shape, or shape without hue if no such chute
+/// exists. Shared by [CompoundRouting] and the live endless board so a swap
+/// cannot invent a second matching rule.
+int compoundBinFor(List<PackageSpec> order, PackageSpec package) {
+  final exact = exactCompoundBin(order, package);
+  if (package.stamp != PackageStamp.priority) {
+    return exact;
+  }
+  int? hueOnly;
+  int? shapeOnly;
+  for (var i = 0; i < order.length; i++) {
+    final chute = order[i];
+    if (chute.colorIndex == package.colorIndex &&
+        chute.shape != package.shape) {
+      hueOnly ??= i;
+    }
+    if (chute.shape == package.shape &&
+        chute.colorIndex != package.colorIndex) {
+      shapeOnly ??= i;
+    }
+  }
+  if (hueOnly != null) {
+    return hueOnly;
+  }
+  if (shapeOnly != null) {
+    return shapeOnly;
+  }
+  return exact;
+}
+
 /// Routes on shape *and* hue together, with each chute owning one exact pair.
 ///
 /// The pairs are chosen so that neither attribute alone disambiguates: two
@@ -123,15 +168,7 @@ class CompoundRouting implements RoutingRule {
   RoutedAttribute get reads => RoutedAttribute.compound;
 
   @override
-  int binFor(PackageSpec package) {
-    for (var i = 0; i < order.length; i++) {
-      if (order[i].shape == package.shape &&
-          order[i].colorIndex == package.colorIndex) {
-        return i;
-      }
-    }
-    return -1;
-  }
+  int binFor(PackageSpec package) => compoundBinFor(order, package);
 
   @override
   late final List<BinSpec> bins = [

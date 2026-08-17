@@ -12,6 +12,7 @@ void main() {
 
     expect(find.text('PUNCH IN'), findsOneWidget);
     expect(find.text('DEPOT 7 · NIGHT SHIFT'), findsOneWidget);
+    expect(find.textContaining('TODAY ·'), findsOneWidget);
   });
 
   testWidgets('home lists every curated shift', (tester) async {

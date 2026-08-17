@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import '../core/package_spec.dart';
 import '../ui/theme.dart';
+import 'text_util.dart';
 
 /// Drawing routines shared by packages on the belt and the identity swatch on
 /// a bin, so the two can never drift out of sync visually.
@@ -107,6 +108,10 @@ abstract final class PackagePainter {
             isUnstable ? Tokens.warn : (isActive ? Tokens.acid : Tokens.paper),
     );
 
+    if (spec.stamp == PackageStamp.priority) {
+      _paintPriority(canvas, rect);
+    }
+
     if (isActive) {
       canvas.drawPath(
         shapePath(spec.shape, rect.inflate(7)),
@@ -144,6 +149,35 @@ abstract final class PackagePainter {
       Paint()..color = Tokens.ink.withValues(alpha: 0.75),
     );
     canvas.restore();
+  }
+
+  /// A static acid "P" badge. The override is the whole mechanic: if it is
+  /// not visible, the reflex chute is a silent lie. Positions are fixed —
+  /// a jittering badge would be a strobe.
+  static void _paintPriority(Canvas canvas, Rect rect) {
+    final badge = Rect.fromLTWH(
+      rect.right - 16,
+      rect.top - 2,
+      16,
+      14,
+    );
+    canvas.drawRect(badge, Paint()..color = Tokens.acid);
+    final mark = layoutText(
+      'P',
+      Tokens.label.copyWith(
+        color: Tokens.ink,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+    );
+    mark.paint(
+      canvas,
+      Offset(
+        badge.center.dx - mark.width / 2,
+        badge.center.dy - mark.height / 2,
+      ),
+    );
   }
 
   /// Draws the identity swatch on a bin: a silhouette for shape-routed levels,

@@ -1,3 +1,4 @@
+import 'board.dart';
 import 'difficulty.dart';
 import 'level_config.dart';
 import 'pass_condition.dart';
@@ -216,6 +217,33 @@ final List<LevelConfig> kCuratedLevels = [
     chaosRate: 0.30,
     telegraphSeconds: 0.6,
   ),
+  LevelConfig(
+    id: 10,
+    title: 'RUSH JOB',
+    objective: 'The stamp outranks the pair',
+    tutorialCopy: 'THE STAMP OUTRANKS THE LABEL.\nTHE OBVIOUS CHUTE IS WRONG.',
+    routing: CompoundRouting(const [
+      PackageSpec(shape: PackageShape.circle, colorIndex: 0),
+      PackageSpec(shape: PackageShape.circle, colorIndex: 1),
+      PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
+    ]),
+    shapes: const [PackageShape.circle, PackageShape.triangle],
+    colors: const [0, 1],
+    spawnPool: const [
+      PackageSpec(shape: PackageShape.circle, colorIndex: 0),
+      PackageSpec(shape: PackageShape.circle, colorIndex: 1),
+      PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
+    ],
+    readWindow: 2.0,
+    spawnInterval: 0.95,
+    maxActive: 4,
+    mistakeLimit: 3,
+    passCondition: const EveryOf([SortTarget(30), ComboTarget(4)]),
+    // Diluted from level 5: this shift teaches PRIORITY, not DAMAGED.
+    chaosRate: 0.20,
+    telegraphSeconds: 0.5,
+    priorityRate: 0.30,
+  ),
 ];
 
 LevelConfig levelById(int id) =>
@@ -227,28 +255,19 @@ LevelConfig levelById(int id) =>
 /// pass target, and no fixed numbers, so every guard in `levels_test.dart`
 /// that reasons about the ladder would be asking it the wrong questions.
 ///
-/// Its chutes are the compound set from shifts 8 and 9, held fixed for the
-/// whole run. The spec's pressure-indexed "kind unlocks" would change the
-/// routing rule mid-run, which changes what the chutes mean while packages are
-/// in flight — the same failure the silent shape-shift was rejected for. That
-/// deviation is recorded in `docs/decision-log.md` and is not implemented here.
+/// Its chutes are the four compound pairs of the endless ladder. The live
+/// board opens at two and grows — see `EndlessBoard`. The spec's pressure-
+/// indexed "kind unlocks" that would change the *routing rule* mid-run are
+/// still rejected; growing the same rule is a different thing.
 final LevelConfig kEndlessShift = LevelConfig(
   id: 0,
   title: 'NIGHT SHIFT',
   objective: 'Last as long as you can',
   tutorialCopy: 'NO QUOTA.\nNO END OF SHIFT.',
-  routing: CompoundRouting(const [
-    PackageSpec(shape: PackageShape.circle, colorIndex: 0),
-    PackageSpec(shape: PackageShape.circle, colorIndex: 1),
-    PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
-  ]),
+  routing: CompoundRouting(EndlessBoard.ladder),
   shapes: const [PackageShape.circle, PackageShape.triangle],
   colors: const [0, 1],
-  spawnPool: const [
-    PackageSpec(shape: PackageShape.circle, colorIndex: 0),
-    PackageSpec(shape: PackageShape.circle, colorIndex: 1),
-    PackageSpec(shape: PackageShape.triangle, colorIndex: 0),
-  ],
+  spawnPool: EndlessBoard.ladder,
   // Starting values only: the curve owns these from the first sort onward,
   // and it opens at level 9's pace rather than warming up through ground the
   // player has already covered.

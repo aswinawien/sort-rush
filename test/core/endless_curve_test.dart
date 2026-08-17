@@ -5,6 +5,8 @@ import 'package:sort_rush/core/run_engine.dart';
 import 'package:sort_rush/core/run_tuning.dart';
 import 'package:sort_rush/core/tuning_delta.dart';
 
+import 'test_level.dart';
+
 /// The endless curve.
 ///
 /// Escalation happens in the order `docs/level-spec.md` states — spawn gap
@@ -125,7 +127,7 @@ void main() {
         engine.update(1 / 60);
         final package = engine.frontMost;
         if (package != null) {
-          engine.tapBin(kEndlessShift.routing.binFor(package.spec));
+          engine.tapBin(engine.binFor(package.spec));
         }
       }
       expect(engine.outcome, isNot(RunOutcome.passed));
@@ -151,6 +153,7 @@ void main() {
 
       var guard = 0;
       while (engine.score.sorted < EndlessCurve.phaseOneEnd && guard++ < 40000) {
+        skipShopIfOpen(engine);
         engine.update(1 / 60);
         if (engine.active.length > peak) {
           peak = engine.active.length;
@@ -159,7 +162,7 @@ void main() {
         if (package != null &&
             package.progress > 0.6 &&
             engine.phase == RunPhase.running) {
-          engine.tapBin(kEndlessShift.routing.binFor(package.spec));
+          engine.tapBin(engine.binFor(package.spec));
         }
       }
 
@@ -179,10 +182,11 @@ void main() {
 
       var guard = 0;
       while (engine.score.sorted < 40 && guard++ < 40000) {
+        skipShopIfOpen(engine);
         engine.update(1 / 60);
         final package = engine.frontMost;
         if (package != null && engine.phase == RunPhase.running) {
-          engine.tapBin(kEndlessShift.routing.binFor(package.spec));
+          engine.tapBin(engine.binFor(package.spec));
         }
         expect(engine.tuning.readWindow,
             greaterThanOrEqualTo(RunTuning.readWindowFloor));

@@ -44,14 +44,34 @@ LevelConfig testLevel({
 /// Routes the front-most package into its correct bin.
 TapResult sortCorrectly(RunEngine engine) {
   final package = engine.frontMost!;
-  return engine.tapBin(engine.level.routing.binFor(package.spec));
+  return engine.tapBin(engine.binFor(package.spec));
 }
 
 /// Routes the front-most package into a bin that is definitely wrong.
 TapResult sortWrongly(RunEngine engine) {
   final package = engine.frontMost!;
-  final correct = engine.level.routing.binFor(package.spec);
-  return engine.tapBin((correct + 1) % engine.level.binCount);
+  final correct = engine.binFor(package.spec);
+  return engine.tapBin((correct + 1) % engine.liveBinCount);
+}
+
+/// Walks past a depot board so a long scripted run is not a shop test.
+void skipShopIfOpen(RunEngine engine) {
+  if (engine.isShopping) {
+    engine.skipShop();
+  }
+}
+
+/// Plays correctly until the depot board opens, or gives up.
+void playToShop(RunEngine engine, {int steps = 8000}) {
+  var n = 0;
+  while (!engine.isShopping &&
+      engine.phase != RunPhase.finished &&
+      n++ < steps) {
+    if (engine.frontMost != null) {
+      sortCorrectly(engine);
+    }
+    engine.update(1 / 60);
+  }
 }
 
 /// Advances just far enough for the next package to spawn.

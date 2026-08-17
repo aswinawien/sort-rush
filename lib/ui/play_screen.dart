@@ -6,21 +6,40 @@ import '../core/level_config.dart';
 import '../core/run_engine.dart';
 import '../core/run_summary.dart';
 import '../game/sort_rush_game.dart';
+import 'memo_board.dart';
 import 'results_screen.dart';
 import 'theme.dart';
 import 'widgets/fit_or_scroll.dart';
+
+/// Debug-only landing for a [PlayScreen] already in the right overlay.
+///
+/// Home's DEV strip uses these. Release builds never construct one.
+enum DevJump { memo, roll, pause }
 
 /// Hosts the Flame surface and everything around it.
 ///
 /// The briefing, pause, and the route to results are Flutter's job; only the
 /// active loop belongs to Flame.
 class PlayScreen extends StatefulWidget {
-  const PlayScreen({super.key, required this.level, this.seed});
+  const PlayScreen({
+    super.key,
+    required this.level,
+    this.seed,
+    this.wager = false,
+    this.jump,
+  });
 
   final LevelConfig level;
 
   /// Fixed seed for tests and reproducible bug reports. Null means pick one.
   final int? seed;
+
+  /// Double-or-nothing replay of a cleared shift. Fail scores zero.
+  final bool wager;
+
+  /// Skips the briefing and opens already in the named overlay. Null in
+  /// every release path.
+  final DevJump? jump;
 
   @override
   State<PlayScreen> createState() => _PlayScreenState();
@@ -29,6 +48,7 @@ class PlayScreen extends StatefulWidget {
 class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
   SortRushGame? _game;
   bool _paused = false;
+  bool _shopOpen = false;
 
   @override
   void initState() {
@@ -39,6 +59,12 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
     // edge swipe does not leave the bars sitting over the belt for the rest
     // of the run.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (widget.jump != null) {
+      _game = _createGame();
+      if (widget.jump == DevJump.pause) {
+        _paused = true;
+      }
+    }
   }
 
   @override
@@ -61,26 +87,49 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       return;
     }
-    if (_game != null && !_paused) {
+    if (_game != null && !_paused && !_shopOpen) {
       _togglePause();
     }
   }
 
   void _begin() {
     setState(() {
-      _game = SortRushGame(
-        level: widget.level,
-        seed: widget.seed ?? DateTime.now().millisecondsSinceEpoch,
-        onRunEnded: _handleRunEnded,
-      );
+      _game = _createGame();
     });
+  }
+
+  SortRushGame _createGame() {
+    return SortRushGame(
+      level: widget.level,
+      seed: widget.seed ?? DateTime.now().millisecondsSinceEpoch,
+      onRunEnded: _handleRunEnded,
+      onShopOpened: () {
+        if (mounted) {
+          setState(() => _shopOpen = true);
+        }
+      },
+      onReady: _applyJump,
+    );
+  }
+
+  void _applyJump(RunEngine engine) {
+    switch (widget.jump) {
+      case DevJump.memo:
+        engine.debugOpenShop();
+      case DevJump.roll:
+        engine.debugForceRoll();
+      case DevJump.pause:
+        engine.pause();
+      case null:
+        break;
+    }
   }
 
   void _handleRunEnded(RunEngine engine) {
     if (!mounted) {
       return;
     }
-    final summary = RunSummary.fromEngine(engine);
+    final summary = RunSummary.fromEngine(engine, wagered: widget.wager);
     // The engine finishes inside a frame; leaving the route mid-frame is not
     // safe, so the navigation waits for the frame to close.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,6 +142,13 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
         ),
       );
     });
+  }
+
+  void _closeShop() {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _shopOpen = false);
   }
 
   void _togglePause() {
@@ -124,6 +180,7 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
     // bars, and a display cutout keeps occluding even in immersive mode, so
     // this is the fallback that keeps the HUD legible in either state.
     game.safeTop = MediaQuery.paddingOf(context).top;
+    game.reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return PopScope(
       canPop: _paused,
@@ -131,27 +188,41 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
         if (didPop) {
           return;
         }
+        if (_shopOpen) {
+          game.engine.skipShop();
+          _closeShop();
+          return;
+        }
         _togglePause();
       },
       child: Scaffold(
         body: Stack(
           children: [
-            Positioned.fill(child: GameWidget(game: game)),
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: _shopOpen || _paused,
+                child: GameWidget(game: game),
+              ),
+            ),
             SafeArea(
               child: Align(
                 alignment: Alignment.topRight,
-                child: IconButton(
-                  onPressed: _togglePause,
-                  icon: Icon(
-                    _paused ? Icons.play_arrow : Icons.pause,
-                    color: Tokens.mute,
-                  ),
-                  iconSize: 28,
-                  tooltip: _paused ? 'Resume' : 'Pause',
-                ),
+                child: _shopOpen
+                    ? const SizedBox.shrink()
+                    : IconButton(
+                        onPressed: _togglePause,
+                        icon: Icon(
+                          _paused ? Icons.play_arrow : Icons.pause,
+                          color: Tokens.mute,
+                        ),
+                        iconSize: 28,
+                        tooltip: _paused ? 'Resume' : 'Pause',
+                      ),
               ),
             ),
             if (_paused) _PauseScrim(onResume: _togglePause),
+            if (_shopOpen)
+              MemoBoard(engine: game.engine, onClosed: _closeShop),
           ],
         ),
       ),
@@ -262,3 +333,4 @@ class _PauseScrim extends StatelessWidget {
     );
   }
 }
+

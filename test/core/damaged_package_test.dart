@@ -173,14 +173,14 @@ void main() {
     test('a morphed package belongs in the bin for its new shape', () {
       final engine = engineWith();
       final package = engine.frontMost!;
-      final originalBin = engine.level.routing.binFor(package.spec);
+      final originalBin = engine.binFor(package.spec);
 
       while (!package.hasMorphed) {
         engine.update(1 / 60);
       }
       engine.drainEvents();
 
-      final newBin = engine.level.routing.binFor(package.spec);
+      final newBin = engine.binFor(package.spec);
       expect(newBin, isNot(originalBin));
 
       // The reflex answer is now wrong, and the game must treat it that way.
@@ -197,7 +197,7 @@ void main() {
       engine.drainEvents();
 
       expect(
-        engine.tapBin(engine.level.routing.binFor(package.spec)),
+        engine.tapBin(engine.binFor(package.spec)),
         TapResult.correct,
       );
     });

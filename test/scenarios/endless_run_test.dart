@@ -31,7 +31,7 @@ void main() {
     );
 
     expect(find.text(kEndlessShift.title), findsOneWidget);
-    expect(find.text('NO QUOTA · NO END'), findsOneWidget);
+    expect(find.textContaining('TODAY ·'), findsOneWidget);
   });
 
   testWidgets('starting endless briefs it as survival, not a quota',
@@ -70,9 +70,13 @@ void main() {
     // Play it properly: sort whatever is at the front, correctly.
     var steps = 0;
     while (game.engine.score.sorted < 25 && steps++ < 600) {
+      if (game.engine.isShopping) {
+        game.engine.skipShop();
+        await tester.pump();
+      }
       final package = game.engine.frontMost;
       if (package != null && game.engine.phase == RunPhase.running) {
-        game.handleBinTap(game.level.routing.binFor(package.spec));
+        game.handleBinTap(game.engine.binFor(package.spec));
       }
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -109,6 +113,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 8));
 
     expect(find.byType(ResultsScreen), findsOneWidget);
     expect(find.text('SHIFT ENDED'), findsOneWidget);

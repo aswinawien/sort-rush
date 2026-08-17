@@ -1,8 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../core/daily_seed.dart';
 import '../core/level_config.dart';
 import '../core/levels.dart';
+import '../core/run_engine.dart';
+import '../core/run_summary.dart';
 import 'play_screen.dart';
+import 'results_screen.dart';
 import 'theme.dart';
 import 'widgets/fit_or_scroll.dart';
 import 'widgets/scan_lines.dart';
@@ -10,7 +15,11 @@ import 'widgets/scan_lines.dart';
 /// Home carries the full zine treatment. The one rule it still owes the
 /// player is that starting a run takes exactly one tap.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.showDevTools = kDebugMode});
+
+  /// Debug jumps for UI review. Tests pass this explicitly — widget tests
+  /// always run in debug, so they cannot rely on [kDebugMode] alone.
+  final bool showDevTools;
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +56,22 @@ class HomeScreen extends StatelessWidget {
                     ),
                   const SizedBox(height: 22),
                   _EndlessRow(
-                    onTap: () => _startLevel(context, kEndlessShift),
+                    onTap: () => _startLevel(
+                      context,
+                      kEndlessShift,
+                      seed: dailySeed(),
+                    ),
                   ),
+                  if (showDevTools) ...[
+                    const SizedBox(height: 22),
+                    _DevJumpStrip(
+                      onMemo: () => _jumpPlay(context, DevJump.memo),
+                      onRoll: () => _jumpPlay(context, DevJump.roll),
+                      onResultsPass: () => _jumpResults(context, passed: true),
+                      onResultsFail: () => _jumpResults(context, passed: false),
+                      onPause: () => _jumpPlay(context, DevJump.pause),
+                    ),
+                  ],
                   const Spacer(flex: 3),
                 ],
               ),
@@ -59,12 +82,57 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _startLevel(BuildContext context, LevelConfig level) {
+  void _startLevel(BuildContext context, LevelConfig level, {int? seed}) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => PlayScreen(level: level)),
+      MaterialPageRoute<void>(
+        builder: (_) => PlayScreen(level: level, seed: seed),
+      ),
+    );
+  }
+
+  void _jumpPlay(BuildContext context, DevJump jump) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlayScreen(
+          level: kEndlessShift,
+          seed: 1,
+          jump: jump,
+        ),
+      ),
+    );
+  }
+
+  void _jumpResults(BuildContext context, {required bool passed}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ResultsScreen(
+          summary: passed ? _devPassedSummary : _devFailedSummary,
+          level: levelById(passed ? 3 : 2),
+        ),
+      ),
     );
   }
 }
+
+const RunSummary _devPassedSummary = RunSummary(
+  levelId: 3,
+  outcome: RunOutcome.passed,
+  score: 240,
+  sorted: 18,
+  misrouted: 1,
+  dropped: 0,
+  bestCombo: 4,
+);
+
+const RunSummary _devFailedSummary = RunSummary(
+  levelId: 2,
+  outcome: RunOutcome.failed,
+  score: 80,
+  sorted: 6,
+  misrouted: 3,
+  dropped: 0,
+  bestCombo: 2,
+);
 
 /// Static offset rather than an animated one. Continuous motion behind the
 /// primary call to action is a comprehension risk and a battery cost, so the
@@ -157,13 +225,82 @@ class _EndlessRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text('NO QUOTA · NO END', style: Tokens.label),
+                  Text('TODAY · ${dailyStamp()}', style: Tokens.label),
                 ],
               ),
             ),
             Text('▸', style: Tokens.label.copyWith(color: Tokens.acid)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Mute, under the endless row, never on PUNCH IN. Release builds omit it.
+class _DevJumpStrip extends StatelessWidget {
+  const _DevJumpStrip({
+    required this.onMemo,
+    required this.onRoll,
+    required this.onResultsPass,
+    required this.onResultsFail,
+    required this.onPause,
+  });
+
+  final VoidCallback onMemo;
+  final VoidCallback onRoll;
+  final VoidCallback onResultsPass;
+  final VoidCallback onResultsFail;
+  final VoidCallback onPause;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('DEV', style: Tokens.label),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _DevChip(label: 'MEMO', onTap: onMemo),
+            _DevChip(label: 'ROLL', onTap: onRoll),
+            _DevChip(
+              label: 'RESULTS',
+              onTap: onResultsPass,
+              onLongPress: onResultsFail,
+            ),
+            _DevChip(label: 'PAUSE', onTap: onPause),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DevChip extends StatelessWidget {
+  const _DevChip({
+    required this.label,
+    required this.onTap,
+    this.onLongPress,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Tokens.mute),
+        ),
+        child: Text(label, style: Tokens.label),
       ),
     );
   }

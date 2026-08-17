@@ -1,15 +1,17 @@
 import 'dart:collection';
 
+import 'board.dart';
 import 'level_config.dart';
 import 'package_spec.dart';
 import 'routing.dart';
 import 'run_tuning.dart';
 import 'score_state.dart';
+import 'shop.dart';
 import 'tuning_delta.dart';
 import 'seeded_rng.dart';
 
 /// Where a run is in its lifecycle.
-enum RunPhase { ready, running, paused, ending, finished }
+enum RunPhase { ready, running, paused, shopping, ending, finished }
 
 enum RunOutcome { none, passed, failed }
 
@@ -132,6 +134,27 @@ class RunEndedEvent extends RunEvent {
   final RunOutcome outcome;
 }
 
+class LayoutTelegraphEvent extends RunEvent {
+  const LayoutTelegraphEvent(this.kind);
+
+  final LayoutChangeKind kind;
+}
+
+class LayoutChangedEvent extends RunEvent {
+  const LayoutChangedEvent(this.kind);
+
+  final LayoutChangeKind kind;
+}
+
+/// The belt is empty and the depot board is up. Presentation draws the memos;
+/// the engine will not spawn or accept taps until [RunEngine.buy] or
+/// [RunEngine.skipShop].
+class ShopOpenedEvent extends RunEvent {
+  const ShopOpenedEvent(this.offers);
+
+  final List<CardSpec> offers;
+}
+
 /// The whole game, minus rendering.
 ///
 /// Imports neither Flame nor Flutter. This is what makes the scoring, combo,
@@ -140,7 +163,16 @@ class RunEndedEvent extends RunEvent {
 class RunEngine {
   RunEngine({required this.level, required this.seed})
       : _rng = SeededRng(seed),
-        _tuning = RunTuning.resolve(level: level);
+        // Own stream, derived from the run seed, so a shop draw can never
+        // shift package spawns. XOR is a bijection: every seed still maps
+        // to a distinct shop stream.
+        _shopRng = SeededRng(seed ^ 0x51A70FF),
+        _tuning = RunTuning.resolve(level: level),
+        _board = level.curve == null
+            ? null
+            : ChuteBoard(
+                EndlessBoard.ladder.sublist(0, EndlessBoard.openingCount),
+              );
 
   /// How long the belt keeps still after a run ends, before results show.
   /// An instant cut on failure reads as a crash and robs the player of the
@@ -161,17 +193,58 @@ class RunEngine {
   final int seed;
 
   final SeededRng _rng;
+  final SeededRng _shopRng;
   final RunScore score = RunScore();
   final List<ActivePackage> _active = [];
   final List<RunEvent> _events = [];
 
   RunTuning _tuning;
   TuningDelta _modifiers = TuningDelta.none;
+  ChuteBoard? _board;
+  LayoutTelegraph? _telegraph;
+  double _nextSwapAt = EndlessBoard.swapInterval;
+  bool _drainingForShop = false;
+  int _nextBlind = 0;
+  List<CardSpec> _shopOffers = const [];
+  final List<CardSpec> _pinned = [];
 
   /// The numbers the belt is running on right now — the level as modified by
   /// the difficulty curve and anything the player has bought. Read this, never
   /// [level], for anything that can change during a run.
   RunTuning get tuning => _tuning;
+
+  /// Live chute count. Endless opens at two and grows; curated is fixed.
+  int get liveBinCount => _board?.length ?? level.binCount;
+
+  /// Where [package] belongs *right now*. Endless reads the live board, which
+  /// can swap and grow; curated reads the level's rule, which never moves.
+  int binFor(PackageSpec package) =>
+      _board?.binFor(package) ?? level.routing.binFor(package);
+
+  /// Chutes to draw. During a grow telegraph this is the *next* board, so the
+  /// new chute is visible as a warning before it can be tapped.
+  List<BinSpec> get visibleBins {
+    final pending = _telegraph;
+    if (pending != null && pending.kind == LayoutChangeKind.grow) {
+      return pending.next.bins;
+    }
+    return _board?.bins ?? level.routing.bins;
+  }
+
+  LayoutTelegraph? get telegraph => _telegraph;
+
+  /// Memos currently on the board. Empty when the shop is closed.
+  List<CardSpec> get shopOffers => _shopOffers;
+
+  /// Memos pinned this run, in buy order. Lasts until the run ends.
+  List<CardSpec> get pinned => List.unmodifiable(_pinned);
+
+  bool get isShopping => _phase == RunPhase.shopping;
+
+  /// Fill of the current pressure band, 0–1. Curated levels have no band.
+  double get pressureProgress => _board == null
+      ? 0
+      : EndlessBoard.pressureProgress(pressure);
 
   /// Pressure index. Increments per correct sort and never decreases, which
   /// is exactly what `score.sorted` already does — so there is no second
@@ -237,6 +310,81 @@ class RunEngine {
     if (_phase == RunPhase.running) {
       _phase = RunPhase.paused;
     }
+  }
+
+  /// Debug-only. Empties the belt, draws a real shop hand, and opens the
+  /// board. [pay] defaults high enough that every slip is affordable.
+  /// Unused by any release path.
+  void debugOpenShop({int pay = 20}) {
+    _active.clear();
+    _telegraph = null;
+    _drainingForShop = false;
+    score.pay = pay;
+    _shopOffers = _shopRng.take(
+      List<CardSpec>.of(EndlessShop.catalog),
+      EndlessShop.offerCount,
+    );
+    _phase = RunPhase.shopping;
+    _events.add(ShopOpenedEvent(_shopOffers));
+  }
+
+  /// Debug-only. Forces combo `x5`, pins two memos, and parks pressure in
+  /// the mid band so the HUD split and scan lines are on. Stays [running].
+  /// Unused by any release path.
+  void debugForceRoll({
+    int consecutive = 20,
+    List<CardSpec>? pinned,
+    int sorted = 32,
+    int scoreValue = 1840,
+  }) {
+    if (_phase == RunPhase.ready) {
+      start();
+    }
+    score.debugForce(
+      consecutive: consecutive,
+      sorted: sorted,
+      score: scoreValue,
+    );
+    final pins = pinned ??
+        [
+          EndlessShop.catalog[0],
+          EndlessShop.catalog[2],
+        ];
+    _pinned
+      ..clear()
+      ..addAll(pins);
+    _modifiers = TuningDelta.none;
+    for (final card in pins) {
+      _modifiers = _modifiers + card.delta;
+    }
+    _snapBoardToPressure();
+    _retune();
+    // P=32 is already past the first blind. Skip blinds the jump leapt over
+    // so the board does not slam open on the first frame of a roll review.
+    while (_nextBlind < EndlessShop.blinds.length &&
+        pressure >= EndlessShop.blinds[_nextBlind]) {
+      _nextBlind++;
+    }
+    if (_phase != RunPhase.finished && _phase != RunPhase.ending) {
+      _phase = RunPhase.running;
+    }
+  }
+
+  /// Instantly grows the live board to the count [pressure] already earned.
+  /// A review jump that left two chutes at `P=32` would be lying about the
+  /// mid-band. No telegraph: nothing is in flight that a warning would serve.
+  void _snapBoardToPressure() {
+    final current = _board;
+    if (current == null) {
+      return;
+    }
+    var board = current;
+    final target = EndlessBoard.targetCount(pressure);
+    while (board.length < target) {
+      board = board.grown(EndlessBoard.ladder[board.length]);
+    }
+    _board = board;
+    _telegraph = null;
   }
 
   void resume() {
@@ -310,15 +458,24 @@ class RunEngine {
     if (anyDropped && _checkEnd()) {
       return;
     }
+    _maybeOpenShop();
 
     _spawnTimer += dt;
-    if (_spawnTimer >= _tuning.spawnInterval &&
+    // Hold the belt while a layout warning is up, or while draining for the
+    // shop. A package that appeared after the warning would still be in flight
+    // when the chutes moved; a package that appeared during the drain would
+    // postpone a shop that is supposed to open on an empty belt.
+    if (_telegraph == null &&
+        !_drainingForShop &&
+        _spawnTimer >= _tuning.spawnInterval &&
         _active.length < _tuning.maxActive) {
       // Reset rather than subtract, so a backlog cannot burst-spawn several
       // packages the instant the belt clears.
       _spawnTimer = 0;
       _spawn();
     }
+
+    _tickBoard(dt);
   }
 
   /// Routes the front-most package into [binIndex].
@@ -330,7 +487,7 @@ class RunEngine {
     if (_phase != RunPhase.running) {
       return TapResult.ignored;
     }
-    if (binIndex < 0 || binIndex >= level.binCount) {
+    if (binIndex < 0 || binIndex >= liveBinCount) {
       return TapResult.ignored;
     }
     final package = frontMost;
@@ -343,9 +500,13 @@ class RunEngine {
 
     _active.remove(package);
 
-    if (level.routing.binFor(package.spec) == binIndex) {
+    if (binFor(package.spec) == binIndex) {
       final tierBefore = score.comboTier;
-      final gained = score.registerCorrect(clutch: clutch);
+      final gained = score.registerCorrect(
+        clutch: clutch,
+        scorePercent: _tuning.scorePercent,
+        payPercent: _tuning.payPercent,
+      );
       final tierAfter = score.comboTier;
       _events.add(
         PackageSortedEvent(
@@ -361,12 +522,16 @@ class RunEngine {
       // A correct sort moves the pressure index, so the numbers are resolved
       // again here. `_retune` ends with the same `_checkEnd` this used to do.
       _retune();
+      _considerGrow();
+      _considerShop();
+      _maybeOpenShop();
       return TapResult.correct;
     }
 
     score.registerMisroute();
     _events.add(PackageMisroutedEvent(binIndex));
     _checkEnd();
+    _maybeOpenShop();
     return TapResult.misroute;
   }
 
@@ -432,17 +597,32 @@ class RunEngine {
       );
 
   void _spawn() {
-    final pool = level.spawnPool;
-    final spec = pool != null
-        ? _rng.pick(pool)
-        : PackageSpec(
-            shape: _rng.pick(level.shapes),
-            colorIndex: _rng.pick(level.colors),
-          );
+    final board = _board;
+    final spec = board != null
+        ? _rng.pick(board.order)
+        : (level.spawnPool != null
+            ? _rng.pick(level.spawnPool!)
+            : PackageSpec(
+                shape: _rng.pick(level.shapes),
+                colorIndex: _rng.pick(level.colors),
+              ));
 
     // Guarded so a level with no chaos draws exactly the numbers it always
     // did: turning chaos on must not silently reseed every other level.
     if (_tuning.chaosRate <= 0 || _rng.nextDouble() >= _tuning.chaosRate) {
+      final priorityRate = _priorityRate;
+      if (priorityRate > 0 && _rng.nextDouble() < priorityRate) {
+        _active.add(
+          _plain(
+            PackageSpec(
+              shape: spec.shape,
+              colorIndex: spec.colorIndex,
+              stamp: PackageStamp.priority,
+            ),
+          ),
+        );
+        return;
+      }
       _active.add(_plain(spec));
       return;
     }
@@ -455,38 +635,7 @@ class RunEngine {
       colorIndex: spec.colorIndex,
       stamp: PackageStamp.damaged,
     );
-    final alternatives = switch (level.routing.reads) {
-      RoutedAttribute.shape => [
-          for (final shape in level.shapes)
-            if (shape != spec.shape)
-              PackageSpec(
-                shape: shape,
-                colorIndex: spec.colorIndex,
-                stamp: PackageStamp.damaged,
-              ),
-        ],
-      RoutedAttribute.colour => [
-          for (final hue in level.colors)
-            if (hue != spec.colorIndex)
-              PackageSpec(
-                shape: spec.shape,
-                colorIndex: hue,
-                stamp: PackageStamp.damaged,
-              ),
-        ],
-      // On a compound level either attribute could change, but only the pairs
-      // that own a chute are legal packages — so the alternatives are simply
-      // the other chutes.
-      RoutedAttribute.compound => [
-          for (final bin in level.routing.bins)
-            if (bin.shape != spec.shape || bin.pattern != spec.pattern)
-              PackageSpec(
-                shape: bin.shape!,
-                colorIndex: FillPattern.values.indexOf(bin.pattern!),
-                stamp: PackageStamp.damaged,
-              ),
-        ],
-    };
+    final alternatives = _corruptionTargets(spec);
     if (alternatives.isEmpty) {
       // A level with only one value of the attribute it routes on cannot
       // express a corruption. Not an error — level 1 is exactly this — so it
@@ -514,5 +663,215 @@ class RunEngine {
         morphTo: _rng.pick(alternatives),
       ),
     );
+  }
+
+  List<PackageSpec> _corruptionTargets(PackageSpec spec) {
+    final board = _board;
+    if (board != null) {
+      return [
+        for (final chute in board.order)
+          if (chute.shape != spec.shape || chute.colorIndex != spec.colorIndex)
+            PackageSpec(
+              shape: chute.shape,
+              colorIndex: chute.colorIndex,
+              stamp: PackageStamp.damaged,
+            ),
+      ];
+    }
+    return switch (level.routing.reads) {
+      RoutedAttribute.shape => [
+          for (final shape in level.shapes)
+            if (shape != spec.shape)
+              PackageSpec(
+                shape: shape,
+                colorIndex: spec.colorIndex,
+                stamp: PackageStamp.damaged,
+              ),
+        ],
+      RoutedAttribute.colour => [
+          for (final hue in level.colors)
+            if (hue != spec.colorIndex)
+              PackageSpec(
+                shape: spec.shape,
+                colorIndex: hue,
+                stamp: PackageStamp.damaged,
+              ),
+        ],
+      RoutedAttribute.compound => [
+          for (final bin in level.routing.bins)
+            if (bin.shape != spec.shape || bin.pattern != spec.pattern)
+              PackageSpec(
+                shape: bin.shape!,
+                colorIndex: FillPattern.values.indexOf(bin.pattern!),
+                stamp: PackageStamp.damaged,
+              ),
+        ],
+    };
+  }
+
+  void _tickBoard(double dt) {
+    if (_board == null) {
+      return;
+    }
+    final pending = _telegraph;
+    if (pending != null) {
+      pending.remaining -= dt;
+      if (pending.remaining <= 0) {
+        _applyTelegraph();
+      }
+      return;
+    }
+    if (_drainingForShop) {
+      return;
+    }
+    if (_elapsed >= _nextSwapAt) {
+      _considerSwap();
+    }
+  }
+
+  void _considerGrow() {
+    final board = _board;
+    if (board == null || _telegraph != null) {
+      return;
+    }
+    final target = EndlessBoard.targetCount(pressure);
+    if (target <= board.length) {
+      return;
+    }
+    final extra = EndlessBoard.ladder[board.length];
+    _beginTelegraph(
+      LayoutChangeKind.grow,
+      board.grown(extra),
+      {board.length},
+    );
+  }
+
+  void _considerSwap() {
+    final board = _board;
+    if (board == null || _telegraph != null || board.length < 2) {
+      return;
+    }
+    _nextSwapAt = _elapsed + EndlessBoard.swapInterval;
+    final pair = _rng.take(List<int>.generate(board.length, (i) => i), 2);
+    _beginTelegraph(
+      LayoutChangeKind.swap,
+      board.swapped(pair[0], pair[1]),
+      pair.toSet(),
+    );
+  }
+
+  void _beginTelegraph(
+    LayoutChangeKind kind,
+    ChuteBoard next,
+    Set<int> highlighted,
+  ) {
+    // At least the live read window, and at least as long as any package
+    // still on the belt has left — a shorter warning would change the
+    // destination under a thumb that already committed.
+    var duration = _tuning.readWindow;
+    for (final package in _active) {
+      final left = (1 - package.progress) * package.readWindow;
+      if (left > duration) {
+        duration = left;
+      }
+    }
+    _telegraph = LayoutTelegraph(
+      kind: kind,
+      next: next,
+      duration: duration,
+      highlighted: highlighted,
+    );
+    _events.add(LayoutTelegraphEvent(kind));
+  }
+
+  void _applyTelegraph() {
+    final pending = _telegraph;
+    if (pending == null) {
+      return;
+    }
+    _board = pending.next;
+    _telegraph = null;
+    if (pending.kind == LayoutChangeKind.grow) {
+      _nextSwapAt = _elapsed + EndlessBoard.swapInterval;
+    }
+    _events.add(LayoutChangedEvent(pending.kind));
+    // A swap can straddle a grow threshold. Recheck once the board is live.
+    _considerGrow();
+    _considerShop();
+    _maybeOpenShop();
+  }
+
+  double get _priorityRate {
+    if (level.priorityRate > 0) {
+      return level.priorityRate;
+    }
+    if (_board != null && pressure >= EndlessBoard.priorityAt) {
+      return EndlessBoard.priorityRate;
+    }
+    return 0;
+  }
+
+  void _considerShop() {
+    if (_board == null ||
+        _telegraph != null ||
+        _drainingForShop ||
+        _phase != RunPhase.running) {
+      return;
+    }
+    if (_nextBlind >= EndlessShop.blinds.length) {
+      return;
+    }
+    if (pressure < EndlessShop.blinds[_nextBlind]) {
+      return;
+    }
+    _drainingForShop = true;
+  }
+
+  void _maybeOpenShop() {
+    if (!_drainingForShop ||
+        _active.isNotEmpty ||
+        _phase != RunPhase.running) {
+      return;
+    }
+    _shopOffers = _shopRng.take(
+      List<CardSpec>.of(EndlessShop.catalog),
+      EndlessShop.offerCount,
+    );
+    _drainingForShop = false;
+    _phase = RunPhase.shopping;
+    _events.add(ShopOpenedEvent(_shopOffers));
+  }
+
+  /// Pins a memo. No-op if the shop is closed or the run cannot afford it.
+  bool buy(int index) {
+    if (_phase != RunPhase.shopping) {
+      return false;
+    }
+    if (index < 0 || index >= _shopOffers.length) {
+      return false;
+    }
+    final card = _shopOffers[index];
+    if (!score.spend(card.cost)) {
+      return false;
+    }
+    applyModifier(card.delta);
+    _pinned.add(card);
+    _closeShop();
+    return true;
+  }
+
+  /// Leaves the memos on the wall. Always legal.
+  void skipShop() {
+    if (_phase != RunPhase.shopping) {
+      return;
+    }
+    _closeShop();
+  }
+
+  void _closeShop() {
+    _shopOffers = const [];
+    _nextBlind++;
+    _phase = RunPhase.running;
+    _spawnTimer = 0;
   }
 }

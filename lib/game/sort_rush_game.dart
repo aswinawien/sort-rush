@@ -19,6 +19,8 @@ class SortRushGame extends FlameGame {
     required this.level,
     required this.seed,
     required this.onRunEnded,
+    this.onShopOpened,
+    this.onReady,
   });
 
   /// Vertical layout split from docs/design-spec.md §8. Proportional so the
@@ -34,6 +36,11 @@ class SortRushGame extends FlameGame {
   final LevelConfig level;
   final int seed;
   final void Function(RunEngine engine) onRunEnded;
+  final void Function()? onShopOpened;
+
+  /// Called once after [engine] exists and has started. Debug jumps use this
+  /// to force a shop, a roll, or a hold without lying in Flutter.
+  final void Function(RunEngine engine)? onReady;
 
   late final RunEngine engine;
 
@@ -62,6 +69,10 @@ class SortRushGame extends FlameGame {
   bool _laidOut = false;
   bool _endNotified = false;
 
+  /// Pushed from Flutter each build. Zeros the held combo split and the
+  /// belt scan lines; timings stay identical.
+  bool reduceMotion = false;
+
   @override
   Color backgroundColor() => Tokens.ink;
 
@@ -74,21 +85,35 @@ class SortRushGame extends FlameGame {
     _sortLine = SortLineComponent();
     await addAll([_belt, _sortLine, _hud]);
 
-    for (var i = 0; i < level.binCount; i++) {
-      final bin = BinComponent(index: i, spec: level.routing.bins[i]);
-      _bins.add(bin);
-      await add(bin);
-    }
-
     _laidOut = true;
-    _applyLayout();
     engine.start();
+    onReady?.call(engine);
+    _syncBins();
+    _applyLayout();
   }
 
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     _applyLayout();
+  }
+
+  void _syncBins() {
+    final specs = engine.visibleBins;
+    final highlighted = engine.telegraph?.highlighted ?? const <int>{};
+    while (_bins.length > specs.length) {
+      _bins.removeLast().removeFromParent();
+    }
+    for (var i = 0; i < specs.length; i++) {
+      if (i < _bins.length) {
+        _bins[i].adopt(specs[i]);
+      } else {
+        final bin = BinComponent(index: i, spec: specs[i]);
+        _bins.add(bin);
+        add(bin);
+      }
+      _bins[i].warned = highlighted.contains(i);
+    }
   }
 
   void _applyLayout() {
@@ -113,6 +138,9 @@ class SortRushGame extends FlameGame {
     _sortLine.size = Vector2(w, 4);
 
     final count = _bins.length;
+    if (count == 0) {
+      return;
+    }
     final binWidth = (w - binGap * (count - 1)) / count;
     for (var i = 0; i < count; i++) {
       _bins[i].position = Vector2(
@@ -156,6 +184,12 @@ class SortRushGame extends FlameGame {
           _hud.glitch();
         case ComboAdvancedEvent():
           _hud.pulseCombo();
+        case LayoutTelegraphEvent():
+        case LayoutChangedEvent():
+          _syncBins();
+          _applyLayout();
+        case ShopOpenedEvent():
+          onShopOpened?.call();
         case RunEndedEvent():
           break;
       }

@@ -14,9 +14,13 @@ class RunSummary {
     required this.dropped,
     required this.bestCombo,
     this.endless = false,
+    this.seed = 0,
+    this.wagered = false,
+    this.pay = 0,
   });
 
-  factory RunSummary.fromEngine(RunEngine engine) => RunSummary(
+  factory RunSummary.fromEngine(RunEngine engine, {bool wagered = false}) =>
+      RunSummary(
         levelId: engine.level.id,
         outcome: engine.outcome,
         score: engine.score.score,
@@ -25,6 +29,9 @@ class RunSummary {
         dropped: engine.score.dropped,
         bestCombo: engine.score.bestCombo,
         endless: engine.level.curve != null,
+        seed: engine.seed,
+        wagered: wagered,
+        pay: engine.score.pay,
       );
 
   final int levelId;
@@ -39,7 +46,34 @@ class RunSummary {
   /// cleared — they cannot be cleared.
   final bool endless;
 
+  /// The seed this run was played under. Endless daily retries reuse it.
+  final int seed;
+
+  /// True when this report is the result of a double-or-nothing replay.
+  final bool wagered;
+
+  /// Leftover within-run shop cash. Printed on the endless slip only.
+  /// Does not change [postedScore].
+  final int pay;
+
   bool get passed => outcome == RunOutcome.passed;
+
+  /// Score as posted. A failed wager zeros it; a cleared wager doubles it.
+  int get postedScore {
+    if (!wagered) {
+      return score;
+    }
+    return passed ? score * 2 : 0;
+  }
+
+  /// Correct sorts as a percentage of every package that left the belt.
+  int get rate {
+    final total = sorted + misrouted + dropped;
+    if (total == 0) {
+      return 0;
+    }
+    return ((sorted / total) * 100).round();
+  }
 
   /// The rubber-stamp verdict.
   ///

@@ -20,18 +20,18 @@ Difficulty comes from four data-driven numbers per level: read window, spawn int
 
 ## Current status
 
-**Milestone 4 — vertical slice — in progress.** Milestone 3 passed its gate on 2026-08-16. Home → Levels 1–9 → Results → Retry is playable end to end, with scoring, combo, game over, and restart.
+**Milestone 4 — vertical slice — in progress.** Milestone 3 passed its gate on 2026-08-16. Home → Levels 1–10 → Results → Retry is playable end to end, with scoring, combo, game over, and restart.
 
 - `flutter analyze` — clean
-- `flutter test` — 187 passing
+- `flutter test` — 265 passing
 - `flutter build appbundle --release` — verified, 45.2 MB (~7 MB per device)
 - Runs on Android — see `docs/screenshots/device/`
 
-**Nine of ten curated shifts ship.** Level 10 needs the `PRIORITY` override, which is specified but unimplemented — `PackageStamp.priority` is currently an enum value no routing rule reads. Endless mode does not exist yet; its foundation is being built.
+**Ten curated shifts ship**, plus endless. Level 10 teaches the `PRIORITY` override so endless is not a cliff. Endless grows, swaps, and opens a memo-board shop between blinds.
 
-Mechanics live today: shape routing, the attribute switch to colour and pattern, combo tiers, queue pressure, clutch saves at the sort line, compound shape-plus-pattern routing, and `DAMAGED` packages that corrupt and re-render mid-belt.
+Mechanics live today: shape routing, the attribute switch to colour and pattern, combo tiers, queue pressure, clutch saves, compound routing, `DAMAGED`, `PRIORITY`, the endless shop, and a double-or-nothing results wager.
 
-**The honest caveat.** Milestone 3's "no P0/P1 bugs" criterion was accepted on automated testing alone. The first run on an Android emulator promptly found a P1 — the HUD drew underneath the system status bar, putting the mistake pips on top of the signal icons. It is fixed. But **no human has played this game yet**, so the fairness floors below are still derived from published reaction-time ranges rather than measured on a real player. See `docs/milestone-3-gate.md` and `docs/decision-log.md`.
+**Gate 4 is awaiting a ruling** — `docs/milestone-4-gate.md`. Onboarding and endless are evidenced. Persistence is unbuilt. Audio is approved and blocked. One developer play said it looks good; the fairness floors are still untimed. The recommendation is to hold, not to close.
 
 ## Getting started
 
@@ -89,7 +89,7 @@ Hard limits for v1. Exceeding any of them requires a decision-log entry and a hu
 
 | Dimension | Ceiling |
 |---|---|
-| Bins on screen | 3 |
+| Bins on screen | 3 curated; 2–4 in endless |
 | Package shapes | 3 |
 | Package colors | 3 (always paired with a fill pattern) |
 | Rule modifiers (stamps) | 2 |
@@ -114,17 +114,37 @@ Explicitly excluded from v1: accounts, backend, multiplayer, online leaderboards
 | `docs/level-spec.md` | Curated levels 1–10, endless curve, difficulty parameters |
 | `docs/audio-brief.md` | Soundtrack direction and per-level generation prompts |
 | `docs/milestone-3-gate.md` | Gate 3: criteria, evidence, defects, and the rulings |
+| `docs/milestone-4-gate.md` | Gate 4: awaiting ruling — hold recommended |
 | `docs/screenshots/` | Web captures of every screen, plus real device captures |
 | `docs/testing-strategy.md` | Test layers and quality bar |
 | `docs/backlog.md` | Captured intent — not designed, not scheduled, not approved |
+| `docs/depot-record.html` | Shift Record dashboard — generated from the decision log |
 | `docs/decision-log.md` | Every meaningful decision, its evidence, and its gate status |
 
 Meaningful decisions go in the decision log. A proposal is not approved until the human gate says so, and when evidence invalidates a decision the log gets a new entry — history is never rewritten.
 
 ## Milestones
 
-1. **Concept** — pitch, core loop, target player, risks, scope ceiling
-2. **Design** — states, UI/UX, rules, onboarding, endless curve, technical handoff
-3. **Prototype** — one complete run, scoring, combo, game over, restart, no P0/P1 bugs — *passed 2026-08-16*
-4. **Vertical slice** — onboarding, endless mode, persistence, feedback, device test ← *current*
+1. **Concept** — pitch, core loop, target player, risks, scope ceiling — *closed*
+2. **Design** — states, UI/UX, rules, onboarding, endless curve, technical handoff — *closed*
+3. **Prototype** — one complete run, scoring, combo, game over, restart — *passed 2026-08-16*
+4. **Vertical slice** — onboarding, endless, persistence, feedback, device test ← *current, Gate 4 awaiting ruling*
 5. **Internal test** — signed AAB, listing basics, tester channel, release evidence
+
+### Milestone 4 — still open
+
+Shipped: curated 1–10, endless (grow / swap / shop / `PRIORITY`), double-or-nothing, a release AAB that builds.
+
+Still required before Gate 4 can close:
+
+1. **A human plays it.** Logged 2026-08-17 — developer, web, qualitative “looks good.” Questionnaire unanswered. Fairness floors still unmeasured.
+2. **Persistence.** Best run via `shared_preferences`. The pitch is beating your own score and nothing stores one.
+3. **Backgrounding and relaunch tests.** Backgrounding holds the belt and is tested. Killed-process relaunch needs persistence first.
+4. **Audio.** Approved, blocked on Suno commercial terms recorded in the decision log. Mute must leave the game fully playable.
+5. **A device playtest that counts.** Emulator smoke found three P1s; that is not the questionnaire in `docs/testing-strategy.md`.
+
+Settings is budgeted and unbuilt. Quota / hazardous cargo / scanner stay designed-not-built.
+
+### Milestone 5 — after Gate 4
+
+Signed `appbundle` already verified. Remaining: store listing (copy, **device** screenshots, icon, content rating), Play internal-test track, release evidence.

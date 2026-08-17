@@ -13,10 +13,26 @@ import '../text_util.dart';
 /// on the outside so edge taps still register.
 class BinComponent extends PositionComponent
     with TapCallbacks, HasGameReference<SortRushGame> {
-  BinComponent({required this.index, required this.spec});
+  BinComponent({required this.index, required BinSpec spec}) : _spec = spec;
 
   final int index;
-  final BinSpec spec;
+  BinSpec _spec;
+
+  BinSpec get spec => _spec;
+
+  /// Swap the face without rebuilding the component. Endless lanes move.
+  void adopt(BinSpec next) {
+    if (next.label == _spec.label &&
+        next.shape == _spec.shape &&
+        next.pattern == _spec.pattern) {
+      return;
+    }
+    _spec = next;
+    _identity?.dispose();
+    _identity = null;
+  }
+
+  bool warned = false;
 
   /// Positive while flashing a correct sort, negative while flashing a
   /// misroute. One field because the two can never overlap.
@@ -137,11 +153,13 @@ class BinComponent extends PositionComponent
       _bodyPaint
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = _flash > 0
-            ? Tokens.acid
-            : _flash < 0
-                ? Tokens.warn
-                : Tokens.paper,
+        ..color = warned
+            ? Tokens.warn
+            : _flash > 0
+                ? Tokens.acid
+                : _flash < 0
+                    ? Tokens.warn
+                    : Tokens.paper,
     );
 
     canvas.drawPicture(_identity!);

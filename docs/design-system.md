@@ -8,8 +8,10 @@ Sort Rush should feel like a strange independent zine that learned to run a very
 
 - Active game: 20% experimentation, 80% clarity.
 - Tutorial: expressive but obvious.
-- Home and results: 60% experimentation.
+- Home, results, and mid-run overlays (pause, memo board): 60% experimentation.
 - Settings: conventional and quiet.
+
+The zine (paper, pins, misregistered type, imperfect stickers) lives on Flutter surfaces. The machine (scan lines, a held channel split, the sort line) lives on the wall behind those surfaces and on the belt. Do not CRT-wash the paper. Do not sticker the chutes.
 
 ## Visual rules
 

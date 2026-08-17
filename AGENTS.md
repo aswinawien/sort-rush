@@ -12,11 +12,11 @@ Keep this file current. If you finish a slice, update *Where things stand* befor
 
 **This project is human-gated. Agents propose; they do not decide.**
 
-There are `proposed` entries in `docs/decision-log.md` right now — level 5's pass condition, home's one-tap promise at large text scales, and backgrounding behaviour. Implementing a `proposed` decision because it looks sensible is the single worst thing you can do here — it converts a pending decision into a fait accompli and the log stops being trustworthy.
+Standalone `proposed` entries in `docs/decision-log.md` right now: Gate 4 outcome. Residuals still sit inside approved entries — home's one-tap promise at 2× text, and a few clutch-save deviations. Implementing one of those because it looks sensible is the single worst thing you can do here — it converts a pending decision into a fait accompli and the log stops being trustworthy.
 
 - Do not implement a `proposed` decision.
 - Do not change a decision's status. Only the human does that.
-- Do not start a milestone whose gate has not been approved. Milestone 4 is currently open; Gate 4 has not been reached.
+- Do not start a milestone whose gate has not been approved. Milestone 4 is open.
 - If evidence invalidates a decision, **add a new entry**. Never rewrite history.
 
 When you find something that needs a decision, write it up in `docs/decision-log.md` as `proposed` with context, options considered, and consequences — then stop.
@@ -36,7 +36,7 @@ Flutter 3.47.0 stable. The project floor is 3.41.0 (Flame 1.36.0 raised it).
 ```bash
 flutter pub get
 flutter analyze      # must stay clean — no issues, ever
-flutter test         # 169 passing as of 2026-08-17
+flutter test         # 265 passing as of 2026-08-17
 ```
 
 **Android builds run on the Windows side, not in WSL.** Flutter 3.47.0 is installed at `E:\flutter-sdk\flutter`, the Android SDK is at `C:\Users\aswin\AppData\Local\Android\Sdk`, and the repository is reachable from Windows as `E:\Game Dev\sort-rush` — the same files, no copying. Drive it from WSL through interop:
@@ -90,7 +90,7 @@ Widget tests around Flame have sharp edges. These are all discovered the hard wa
 
 **After any tap that reaches Flame, pump at least 100ms.** Flame's multi-tap recognizer arms a 40ms countdown on pointer-down; ending a test inside that window leaves a pending timer and the test fails.
 
-**`ResultsScreen` runs a `Timer.periodic`** — 40ms per line, eight lines, self-cancelling on the tick after the last. Pump ~500ms to let it finish, or tap to skip (which cancels it). Otherwise the test ends with a timer pending.
+**`ResultsScreen` types the manifest** — 24ms per character, a pause between lines, plus a 500ms cursor blink timer. Both cancel when printing finishes or the player taps the `skip-manifest` overlay. Do not pump ~500ms and hope; that no longer finishes the slip. Pump ~8s of fake time, tap `skip-manifest`, or set `MediaQuery.disableAnimations`. Otherwise the test ends with a timer pending.
 
 **Booting the game needs three pumps**, because `onLoad` is async:
 
@@ -118,31 +118,27 @@ tester.widget<GameWidget<SortRushGame>>(
 
 ## Where things stand
 
-*Last updated 2026-08-16, first slice of Milestone 4.*
+*Last updated 2026-08-17, results typewriter shipped.*
 
-**Gate 3 passed. Milestone 3 is closed and Milestone 4 is in progress.** Home → shifts 1–9 → Results → Retry plays end to end. `flutter analyze` clean, 169 tests passing.
+**Milestone 4 is in progress. Gate 4 is not closed.** Evidence: `docs/milestone-4-gate.md`. Recommendation: hold. Do not start Milestone 5.
 
-**Milestone 4 progress:** the pass condition is generalised (`lib/core/pass_condition.dart`) and level 4 ships. The required scenarios that needed no design ruling — small and large screens, text scaling, orientation — are now covered by `test/ui/responsive_test.dart`, which found and fixed a P1: home and the briefing overflowed at large text scales and pushed their primary buttons off-screen entirely. `lib/ui/widgets/fit_or_scroll.dart` is the fix. Levels 5–10 are blocked — see below.
+**Just shipped (human: "also can you add this animation?"):** results types the manifest character-by-character with a blinking cursor. No jitter, no `dart:math` Random. Tap skips. Reduce-motion prints at once.
 
-**The most important thing to know about that ruling:** "no P0/P1 bugs" was accepted on automated testing alone. The app has never run on Android — there is no SDK here — so layer 5 of `docs/testing-strategy.md` has never executed, and the fairness floors in `docs/level-spec.md` rest on inferred reaction-time ranges rather than measurement. **The device test is Milestone 4's first obligation.** Do not treat those numbers as settled.
+**First human play (2026-08-17):** developer, web, verdict "looks good", no P0/P1 named. Questionnaire unanswered. Fairness floors still untimed. This is not the device test and does not close Gate 4.
 
-**Milestone 4 scope**, approved as a set at Gate 3 and specified in `docs/decision-log.md`:
+**Still approved and unbuilt:** audio. Quota contracts, hazardous cargo, and the scanner reveal remain designed-not-built.
 
-- `DAMAGED` = a package that enters a visibly corrupted state, then re-renders as a different shape. The telegraph is the whole mechanic — a silent change punishes a decision already committed to. Never on the same package as `PRIORITY`, and the unstable state must not strobe.
-- Double-or-nothing as an opt-in wager on the results screen. Not a stamp, because both modifier slots are spent.
-- Onboarding levels 4–7 stay deterministic. No imposed RNG in the tutorial.
-- Audio pipeline opens. Prompts are in `docs/audio-brief.md`. Two gates ride on it: Suno's commercial terms must be verified against the Play release, and `pubspec.yaml`'s no-asset-pipeline line must be amended rather than worked around.
+**Bins ceiling** is 3 curated, 2–4 endless. Routing during an endless run must go through `engine.binFor` / `liveBinCount`, never `level.routing.binFor`. Shop RNG is `SeededRng(seed ^ 0x51A70FF)` — never the engine stream.
 
-**Levels 5–10 are each blocked, and the reasons differ:**
+**What closes Milestone 4, in order, if the gate is held:**
 
-- **L5** — its approved pass condition ("reach combo x3") clears in ~21s, under the spec's own 30–90s band. Recorded as `proposed` in the decision log; needs a ruling. **Levels 6–10 sit behind it**, because shipping 6 without 5 leaves a gap that strands the player mid-ladder.
-- **L7** — needs "clutch saves", which is design-spec §12.4 and was explicitly not ruled on at Gate 3.
-- **L8, L9** — need compound shape+colour routing. No such `RoutingRule` exists.
-- **L10** — needs the `PRIORITY` stamp. `PackageSpec` has no stamp field.
+1. Persistence — best run. Do not invent unlock-gating endless; that is undecided.
+2. Audio only after Suno Play terms are recorded in the decision log, or an explicit deferral.
+3. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors.
 
-**Still open, not ruled on:** design-spec §12.4 (near-miss clutch bonus), §12.5 (level 1 having no failure state), §12.6 (results-screen design pass — M3-04 folds into it). Defects M3-02 to M3-04 are P3 and open.
+**Then Milestone 5:** listing basics, Play internal-test track, release evidence. The signed AAB already builds. Do not start M5 before Gate 4 closes.
 
-**Nothing is committed** beyond the initial commit and a README update. All the test files, docs, screenshots, and the M3-01 fix are uncommitted working-tree changes.
+**Do not start audio, quota contracts, hazardous cargo, or the scanner unless the human asks.**
 
 ---
 
@@ -150,10 +146,9 @@ tester.widget<GameWidget<SortRushGame>>(
 
 The temptation is to add features. Resist it. In rough order of what actually helps:
 
-1. **Get it onto an Android device.** Milestone 3 closed with its weakest criterion unproven and the fairness floors unmeasured. Everything else is guesswork until this happens.
-2. **Coverage the gate names as missing** — backgrounding and relaunch, small and large screens, text scaling, orientation. All are required scenarios in `docs/testing-strategy.md` with no tests today. None needs a design decision, so this is the safest useful work available without asking anyone.
-3. **Milestone 4's approved scope**, in `docs/decision-log.md`. Read the `DAMAGED` entry carefully before implementing it — the telegraph is the mechanic, not a nicety, and dropping it turns a skill into a coin flip.
-4. **Never** add monetization. The constitution forbids it until repeat play is demonstrated by human testing.
+1. **Persistence — best run.** The pitch is beating your own score and nothing stores one. Do not invent unlock-gating endless.
+2. **Coverage that still has no test** — killed-process relaunch. Backgrounding already holds the belt. Relaunch needs persistence first.
+3. **Never** add monetization. The constitution forbids it until repeat play is demonstrated by human testing. The first play is logged; that is not yet the repeat-play evidence this rule wants.
 
 Every task report must include: current state, goal, evidence, proposed action, files to change, tests to run, risks, explicit non-goals, approval status, and decision-log update. That list is from `CLAUDE.md` and it is not optional.
 
@@ -166,6 +161,7 @@ Every task report must include: current state, goal, evidence, proposed action, 
 | `CLAUDE.md` | The constitution. Mission, non-negotiables, milestones. Read first. |
 | `docs/decision-log.md` | Every decision, its evidence, its gate status. The project's memory. |
 | `docs/milestone-3-gate.md` | Gate 3, closed 2026-08-16: criteria, evidence, defects, and the rulings. |
+| `docs/milestone-4-gate.md` | Gate 4, awaiting ruling: criteria, evidence, gaps, and the options. |
 | `docs/product-brief.md` | Pitch, target player, risks, scope ceiling, discarded alternatives. |
 | `docs/design-system.md` | Visual direction, novelty budget, interaction and accessibility rules. |
 | `docs/design-spec.md` | Screen-by-screen spec, Flutter/Flame mapping, open questions in §12. |
@@ -174,3 +170,4 @@ Every task report must include: current state, goal, evidence, proposed action, 
 | `docs/audio-brief.md` | Soundtrack direction and generation prompts. Production material, not a decision; the audio decision itself was approved at Gate 3. |
 | `docs/testing-strategy.md` | Test layers, required scenarios, bug format, severity rubric. |
 | `docs/screenshots/` | Web captures of every screen. Layout evidence, not device evidence. |
+| `docs/depot-record.html` | Shift Record dashboard, generated from the decision log. |

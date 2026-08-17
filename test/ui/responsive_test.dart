@@ -83,13 +83,19 @@ void main() {
         testWidgets('results lays out at ${scale}x text', (tester) async {
           await pumpAt(
             tester,
-            ResultsScreen(summary: passedRun(), level: levelById(1)),
+            MediaQuery(
+              data: MediaQueryData(
+                disableAnimations: true,
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: ResultsScreen(
+                summary: passedRun(),
+                level: levelById(1),
+              ),
+            ),
             size: size,
             textScale: scale,
           );
-          // Let the manifest finish printing: fully printed is the tallest
-          // the screen ever gets.
-          await tester.pump(const Duration(milliseconds: 500));
 
           expect(tester.takeException(), isNull);
           expect(find.text('CLOCK BACK IN'), findsOneWidget);
@@ -139,11 +145,19 @@ void main() {
     // the fold on a small phone would quietly retract that.
     await pumpAt(
       tester,
-      ResultsScreen(summary: passedRun(), level: levelById(1)),
+      MediaQuery(
+        data: const MediaQueryData(
+          disableAnimations: true,
+          textScaler: TextScaler.linear(2.0),
+        ),
+        child: ResultsScreen(
+          summary: passedRun(),
+          level: levelById(1),
+        ),
+      ),
       size: const Size(320, 568),
       textScale: 2.0,
     );
-    await tester.pump(const Duration(milliseconds: 500));
 
     final rect = tester.getRect(find.text('CLOCK BACK IN'));
     expect(rect.top, greaterThanOrEqualTo(0.0));

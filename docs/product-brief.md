@@ -50,7 +50,7 @@ Hard limits for v1. Exceeding any of these requires a new decision-log entry and
 
 | Dimension | Ceiling |
 |---|---|
-| Bins on screen | 3 |
+| Bins on screen | 3 curated; 2–4 in endless |
 | Package shapes | 3 |
 | Package colors | 3 (always paired with a fill pattern) |
 | Rule modifiers (stamps) | 2 |

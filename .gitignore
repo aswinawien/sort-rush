@@ -44,5 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Widget Preview related
-.widget_preview/
+# Generated from docs/decision-log.md. Regen locally:
+#   python3 tool/generate_depot_record.py
+docs/depot-record.html
+

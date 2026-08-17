@@ -81,6 +81,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 500));
+    if (find.byType(ResultsScreen).evaluate().isNotEmpty) {
+      await tester.pump(const Duration(seconds: 8));
+    }
   }
 
   int alwaysCorrect(int correct, int binCount) => correct;

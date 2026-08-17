@@ -119,20 +119,36 @@ Type: oversized display numerals for score and combo; compact mono for all syste
 
 Layout, top to bottom:
 
-1. **Status strip** — score (display numerals, `acid`), combo tier, mistake pips. Fixed height, never overlaps the belt.
-2. **Belt** — packages descend. Occupies the vertical middle. This region gets no decorative treatment at all.
+1. **Status strip** — score (display numerals, `acid`), combo tier, mistake pips. Endless also shows the `P` bar and `PAY`. Fixed height, never overlaps the belt.
+2. **Belt** — packages descend on `ink`. Never a light or paper play field. Occupies the vertical middle. Packages and chutes get no decorative treatment: no target ring, no neon halo, no stickers. The *background* may carry stepped scan lines — see machine intensity below.
 3. **Sort line** — a thin `mute` rule marking the deadline. Turns `warn` when the active package is within 0.4s of crossing.
-4. **Bins** — three, bottom-anchored, full-width row.
+4. **Bins** — outline silhouettes plus a mono letter, bottom-anchored, full-width row. Never magazine cards. Never a cost stamp.
 
 - **Touch targets:** each bin ≥ 96dp tall and ≥ 30% of screen width, extending to the screen edge so edge taps register. No interactive element within 24dp of another.
 - **Feedback at the point of action** (design-system requirement): correct sort collapses the package into the bin with an `acid` flash on the bin lip; misroute shakes the bin 6px and flashes `warn`. **Simultaneously** the score/combo region reacts — this dual-site feedback is required, not optional.
-- **Motion:** correct 120ms ease-out; misroute 180ms with a single 1-frame RGB channel offset on the score readout only; combo tier-up briefly misregisters the combo numeral. That one-frame glitch on tier-up and error is the entire 20% experimentation budget for this screen. Nothing else on the play field glitches.
+- **Motion:** correct 120ms ease-out; misroute 180ms with a channel-split on the **score** only. Combo and pressure are a different channel: see below. Packages and chutes never glitch.
+- **Combo and score on a roll.** `x1` is mute, score is perfectly registered. At `x2`–`x3` both the score numeral and `COMBO xN` hold a static 2px cyan/magenta split. At `x4`–`x5` the split is 3px. Printed once per tier, not animated, not a strobe. A mistake replaces the score split with the warn ghost for a beat; combo does not glitch on a mistake. A broken combo snaps both back to registered — no linger. Reduce-motion drops the split and keeps the acid combo color.
+- **Machine intensity (proposed 2026-08-17).** The belt is always `ink`. As the player fills the `P` bar and holds a combo, the *wall* behind the packages steps up — faint horizontal scan lines, opacity `0.12 × max(pFill, comboStep)` where `comboStep` is `0 / 0.25 / 0.40 / 0.55 / 0.70` at `x1`–`x5`. Two triggers, they stack by taking the louder one, they never add past the cap. Stepped with the numbers, not jittered per frame. This is how a roll *feels* without flashing and without painting the packages. Reduce-motion sets intensity to 0; acid combo color and the `P` bar remain.
+- **Pinned memos (proposed 2026-08-17, endless only).** A row of paper chips under `PAY`, short titles only, max three visible, overflow as `·N`. Not tappable. A pin lasts the whole run. If the chips are removed the player cannot tell what they bought — they are information, not decoration.
 - **Copy:** on misroute, `MISROUTE` in `warn` mono. On miss, `DROPPED`. Never `WRONG`, never anything that blames the player.
+
+Chip titles:
+
+| Catalog id | Chip |
+|---|---|
+| `slow-belt` | `SLOW BELT` |
+| `wide-gap` | `WIDE GAP` |
+| `extra-pip` | `+1 LIFE` |
+| `calm-labels` | `CALM` |
+| `long-warn` | `LONG WARN` |
+| `overtime` | `OT PAY` |
+| `double-stamp` | `DBL STAMP` |
+| `high-volume` | `HIGH VOL` |
 
 ### 5.3 Results — 60% experimentation
 
-- **Treatment:** a dot-matrix **shipping manifest** that prints line by line (~40ms per line) on `paper`.
-- **Copy:** header `SHIFT ENDED` — not `GAME OVER`. Lines: `SORTED`, `MISROUTED`, `DROPPED`, `BEST COMBO`, `SCORE`, and a rubber-stamp verdict.
+- **Treatment:** a dot-matrix **shipping manifest** that types character by character (~24ms, fixed cadence) on `paper`, with a blinking block cursor. No per-frame jitter. No `dart:math` Random.
+- **Copy:** header `SHIFT ENDED` — not `GAME OVER`. Lines: `SORTED`, `MISROUTED`, `DROPPED`, `BEST COMBO`, `SCORE`, and a rubber-stamp verdict. Endless replaces `BEST COMBO` with `HAZARD PAY xN` and adds leftover `PAY N`. Neither line changes the posted score.
 - **Verdict stamps** by score band, stamped with slight rotation: `PROBATIONARY` / `CLEARED` / `EMPLOYEE OF THE SHIFT`.
 - **Primary action:** `CLOCK BACK IN` (retry, same mode). **Secondary:** `HOME`.
 - Printing animation is **skippable on tap** and fully skipped when reduce-motion is on. A player restarting for the fifth time must not be forced to watch it.
@@ -140,6 +156,23 @@ Layout, top to bottom:
 ### 5.4 Settings — conventional and quiet
 
 Sound toggle, haptics toggle, reduce-motion toggle, colorblind-friendly note, reset progress (with confirm). No treatment. Standard Material controls, system text scaling respected.
+
+### 5.5 Memo board — 60% zine, overlay not a screen
+
+Mid-run Flutter overlay on a drained endless belt. Same family as home and results, not the play field. The approved fiction is a cork board a supervisor left three notes on, not a shop and not a card draft.
+
+- **Purpose:** pick one memo or walk on. Skip is always legal.
+- **Player question:** "What do I want to live with for the rest of this run?"
+- **Primary action:** tap a slip (pins it, spends `PAY`, closes the board).
+- **Secondary:** `WALK ON` — full-width, ≥56dp, mute, perforated receipt tab. Skipping must look cheap, not punished.
+- **Hierarchy, top to bottom:** acid outline stamp `DEPOT MEMO` · `PAY N` as a paper sticker · display line `PIN ONE. OR WALK ON.` with a **static** 2px channel split · three canted paper slips with an acid tack · `WALK ON`.
+- **Each slip:** title, one-line effect, `COST N` as a small stamp. Affordable = paper fill, acid tack. Unaffordable = still fully readable, mute tack, `COST` in `warn`, no lock icon, tap is a no-op. Never hide an unaffordable slip.
+- **Background:** the frozen empty play field at ~8% plus faint scan lines and a 2px offset rule. The **wall** is the machine. The **slips** stay paper. Do not CRT-wash the memos.
+- **Touch:** each slip ≥56dp tall, 12dp gap. Nothing important in the top 48dp.
+- **Copy, exact:** `DEPOT MEMO` / `PIN ONE. OR WALK ON.` / `PAY N` / `COST N` / `WALK ON`. No `SHOP`, `STORE`, `REROLL`, `BUY`.
+- **Rejected from the Stitch pass, do not build:** a target ring on the belt; chutes as magazine cards; a `COST` stamp on a chute; a light/paper play field; neon package halos; gold coins or rarity colors; a fourth memo; a confirm dialog; animated glitch.
+
+Flutter child of the existing `PlayScreen` `Stack`, same reason pause is not a Flame overlay: it must claim its own hits. `lib/core` still owns buy / skip / affordability.
 
 ---
 
@@ -163,7 +196,7 @@ Pitch rising with combo tier is the cheapest possible "you are doing well" signa
 
 - Package identity is always shape + pattern; color is decorative reinforcement only.
 - Bin identity is shape + mono letter; color is never the differentiator.
-- Reduce-motion disables misregistration, scan lines, shake, and manifest printing. Gameplay timings are unchanged — reduce-motion must never alter difficulty.
+- Reduce-motion disables misregistration (including the held combo split and the memo-board headline split), scan lines (including belt machine intensity), shake, and manifest printing. Gameplay timings are unchanged — reduce-motion must never alter difficulty. Combo still turns `acid` at `x2`. The `P` bar still fills. Pinned chips still draw.
 - No flashing above 3Hz anywhere.
 - System text scaling is respected on all Flutter-owned surfaces. The Flame canvas uses its own scale-aware layout and is exempt, per the constitution.
 - Sound-off is a first-class mode, not a degraded one.
@@ -184,7 +217,7 @@ Per the constitution: Flutter widgets own navigation, overlays, settings, and re
 | Element | Owner | Type |
 |---|---|---|
 | Home, Settings, Results | Flutter | `StatelessWidget` / `StatefulWidget` routes |
-| Pause overlay, countdown | Flutter | Flame `overlays` |
+| Pause overlay, memo board | Flutter | child of `PlayScreen` `Stack` — not a Flame overlay |
 | Game surface | Flame | `FlameGame` subclass, `SortRushGame` |
 | Belt + spawning | Flame | `BeltComponent`, `SpawnerComponent` |
 | Package | Flame | `PackageComponent` (shape, hue, pattern, stamp) |
@@ -205,7 +238,7 @@ Pure Dart: `RunConfig`, `LevelConfig`, `DifficultyCurve`, `PackageSpec`, `Routin
 
 Flame: `SortRushGame`, `BeltComponent`, `SpawnerComponent`, `PackageComponent`, `BinComponent`, `SortLineComponent`, `HudComponent`, `FeedbackBurst`.
 
-Flutter: `HomeScreen`, `SettingsScreen`, `ResultsScreen`, `PauseOverlay`, `CountdownOverlay`, `ManifestPrinter`.
+Flutter: `HomeScreen`, `SettingsScreen`, `ResultsScreen`, `PauseOverlay`, `CountdownOverlay`, `ManifestPrinter`, `MemoBoard`.
 
 ---
 
@@ -245,3 +278,4 @@ Technical:
 4. **Near-miss "clutch" bonus.** Level 7 teaches near-miss recovery, which implies a rewarded save. This spec assumes a small bonus for sorting within 0.5s of the sort line. Confirm the bonus exists and whether it also protects the combo from breaking.
 5. **Level 1 failure state.** Level 1 has no mistake limit by design, so it cannot demonstrate game-over. Milestone 3's game-over criterion is therefore exercised only by levels 2–3. Confirm this is acceptable rather than adding a mistake limit to Level 1.
 6. **Results screen after a curated level.** The manifest metaphor was designed for an endless run's stats. For a curated level it must also communicate pass/fail and next-level progression. Needs a short follow-up design pass before implementation.
+7. **Memo board restyle, held combo split, pinned chips, machine intensity.** Approved and shipped 2026-08-17. See `docs/decision-log.md` under *Presentation slice shipped*.

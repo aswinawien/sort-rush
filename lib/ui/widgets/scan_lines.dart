@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// Faint horizontal rules over a surface. Part of the zine treatment on Home
-/// and Results only — the play field gets none of this.
+/// Faint horizontal rules over a Flutter surface. Home, results, and the
+/// memo-board wall. The belt draws its own stepped scan lines in Flame.
 class ScanLines extends StatelessWidget {
   const ScanLines({super.key, this.spacing = 4, this.opacity = 0.05});
 
