@@ -67,78 +67,89 @@ abstract final class EndlessShop {
     return pay;
   }
 
-  static int slipCost(CardSpec card, int blindIndex) =>
-      card.cost + blindIndex * costBumpPerBlind;
+  static int slipCost(CardSpec card, int blindIndex, {int extraBump = 0}) =>
+      card.cost + blindIndex * (costBumpPerBlind + extraBump);
 
   static int redrawCost(int redrawsUsed) =>
       redrawBase + redrawsUsed * redrawBump;
 
-  /// Short v1 pool: parameter retunes plus one give-and-take. No extra
-  /// chute — that would breach the 2–4 endless ceiling. No probability.
+  static CardSpec byId(String id) =>
+      catalog.firstWhere((card) => card.id == id);
+
+  /// Visible tradeoffs. RNG picks which three appear; the player sees both
+  /// sides and pins one. No probability in the copy, no curse after the tap.
   static const List<CardSpec> catalog = [
-    CardSpec(
-      id: 'slow-belt',
-      title: 'SLOW THE BELT',
-      chip: 'SLOW BELT',
-      body: 'READ WINDOW +0.40s',
-      cost: 5,
-      delta: TuningDelta(readWindow: 0.40),
-    ),
-    CardSpec(
-      id: 'wide-gap',
-      title: 'WIDE GAP',
-      chip: 'WIDE GAP',
-      body: 'SPAWN INTERVAL +0.15s',
-      cost: 5,
-      delta: TuningDelta(spawnInterval: 0.15),
-    ),
-    CardSpec(
-      id: 'extra-pip',
-      title: '+1 MISTAKE ALLOWED',
-      chip: '+1 LIFE',
-      body: 'ONE MORE LIFE THIS RUN',
-      cost: 7,
-      delta: TuningDelta(mistakeLimit: 1),
-    ),
-    CardSpec(
-      id: 'calm-labels',
-      title: 'CALM LABELS',
-      chip: 'CALM',
-      body: 'CHAOS −0.15',
-      cost: 6,
-      delta: TuningDelta(chaosRate: -0.15),
-    ),
     CardSpec(
       id: 'long-warn',
       title: 'LONG WARN',
       chip: 'LONG WARN',
-      body: 'TELEGRAPH +0.40s',
+      body: 'TELEGRAPH +0.40s · CHAOS +0.10',
       cost: 4,
-      delta: TuningDelta(telegraphSeconds: 0.40),
-    ),
-    CardSpec(
-      id: 'overtime',
-      title: 'OVERTIME PAY',
-      chip: 'OT PAY',
-      body: 'PAY RATE +50%',
-      cost: 4,
-      delta: TuningDelta(payPercent: 50),
+      delta: TuningDelta(telegraphSeconds: 0.40, chaosRate: 0.10),
     ),
     CardSpec(
       id: 'double-stamp',
       title: 'DOUBLE STAMP',
       chip: 'DBL STAMP',
-      body: 'SCORE +50%',
+      body: 'SCORE +50% · MISS TAXES THE TIER',
       cost: 6,
-      delta: TuningDelta(scorePercent: 50),
+      delta: TuningDelta(scorePercent: 50, missScorePenalty: 1),
     ),
     CardSpec(
-      id: 'high-volume',
-      title: 'HIGH VOLUME',
-      chip: 'HIGH VOL',
-      body: 'SPAWN −0.10s · SCORE +50%',
-      cost: 3,
-      delta: TuningDelta(spawnInterval: -0.10, scorePercent: 50),
+      id: 'wide-gap',
+      title: 'WIDE GAP',
+      chip: 'WIDE GAP',
+      body: 'SPAWN INTERVAL +0.15s · PAY −40%',
+      cost: 5,
+      delta: TuningDelta(spawnInterval: 0.15, payPercent: -40),
+    ),
+    CardSpec(
+      id: 'hot-belt',
+      title: 'HOT BELT',
+      chip: 'HOT BELT',
+      body: 'SCORE +50% · READ WINDOW −0.25s',
+      cost: 6,
+      delta: TuningDelta(scorePercent: 50, readWindow: -0.25),
+    ),
+    CardSpec(
+      id: 'clean-shift',
+      title: 'CLEAN SHIFT',
+      chip: 'CLEAN SHIFT',
+      body: 'CHAOS −0.15 · COMBO CAP x4',
+      cost: 6,
+      delta: TuningDelta(chaosRate: -0.15, maxComboTier: -1),
+    ),
+    CardSpec(
+      id: 'priority-bonus',
+      title: 'PRIORITY BONUS',
+      chip: 'PRI BONUS',
+      body: 'PRIORITY SCORE +50% · PRIORITY +0.15',
+      cost: 5,
+      delta: TuningDelta(priorityScorePercent: 50, priorityRate: 0.15),
+    ),
+    CardSpec(
+      id: 'salvage-crew',
+      title: 'SALVAGE CREW',
+      chip: 'SALVAGE',
+      body: 'CLUTCH +15 · SCORE −25%',
+      cost: 5,
+      delta: TuningDelta(clutchBonus: 15, scorePercent: -25),
+    ),
+    CardSpec(
+      id: 'overtime',
+      title: 'OVERTIME',
+      chip: 'OVERTIME',
+      body: 'NEXT BLIND +12 · PRICES +3/BOARD',
+      cost: 4,
+      delta: TuningDelta(blindShift: 12, costBump: 3),
+    ),
+    CardSpec(
+      id: 'quiet-machine',
+      title: 'QUIET MACHINE',
+      chip: 'QUIET MACH',
+      body: 'MAX ACTIVE −1 · SCORE −30%',
+      cost: 5,
+      delta: TuningDelta(maxActive: -1, scorePercent: -30),
     ),
   ];
 }

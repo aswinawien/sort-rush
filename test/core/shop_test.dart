@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sort_rush/core/board.dart';
 import 'package:sort_rush/core/floor_board.dart';
 import 'package:sort_rush/core/levels.dart';
+import 'package:sort_rush/core/package_spec.dart';
 import 'package:sort_rush/core/run_engine.dart';
 import 'package:sort_rush/core/run_tuning.dart';
+import 'package:sort_rush/core/score_state.dart';
 import 'package:sort_rush/core/shop.dart';
 
 import 'test_level.dart';
@@ -118,6 +121,23 @@ void main() {
         expect(card.chip, isNotEmpty, reason: card.id);
         expect(card.chip.length, lessThanOrEqualTo(12), reason: card.id);
       }
+    });
+
+    test('every memo is a visible tradeoff', () {
+      expect(EndlessShop.catalog, hasLength(9));
+      for (final card in EndlessShop.catalog) {
+        expect(card.body.contains(' · '), isTrue, reason: card.id);
+        expect(card.delta.isEmpty, isFalse, reason: card.id);
+      }
+    });
+
+    test('withCost keeps the tradeoff, not just the price', () {
+      final card = EndlessShop.byId('double-stamp');
+      final bumped = card.withCost(99);
+      expect(bumped.cost, 99);
+      expect(bumped.body, card.body);
+      expect(identical(bumped.delta, card.delta), isTrue);
+      expect(bumped.id, card.id);
     });
 
     test('a pin is remembered for the rest of the run', () {
@@ -250,6 +270,159 @@ void main() {
       expect(engine.score.pay, 2);
       expect(engine.shopOffers.map((c) => c.id), ids);
       expect(engine.isShopping, isTrue);
+    });
+  });
+
+  group('visible tradeoffs', () {
+    test('Double Stamp deducts a current-tier sort on a miss', () {
+      final engine = RunEngine(
+        level: testLevel(spawnInterval: 0.65, mistakeLimit: 5),
+        seed: 1,
+      )..start();
+      engine.applyModifier(EndlessShop.byId('double-stamp').delta);
+      for (var i = 0; i < 5; i++) {
+        sortCorrectly(engine);
+        spawnNext(engine);
+      }
+      expect(engine.score.comboTier, 2);
+      final before = engine.score.score;
+      final penalty = RunScore.baseValue *
+          engine.score.comboTier *
+          engine.tuning.scorePercent ~/
+          100;
+      sortWrongly(engine);
+      expect(engine.score.score, before - penalty);
+      expect(engine.score.comboTier, 1);
+    });
+
+    test('Salvage Crew pays the bigger clutch then the lower score rate', () {
+      final engine = RunEngine(
+        level: testLevel(readWindow: 4.0, spawnInterval: 1000),
+        seed: 5,
+      )..start();
+      engine.applyModifier(EndlessShop.byId('salvage-crew').delta);
+      while (engine.timeToLine! > RunEngine.clutchWindow - 0.05) {
+        engine.update(1 / 240);
+      }
+      sortCorrectly(engine);
+      expect(engine.score.clutchSaves, 1);
+      expect(engine.score.score, 22);
+    });
+
+    test('Clean Shift never awards x5', () {
+      final engine = RunEngine(
+        level: testLevel(spawnInterval: 0.65, mistakeLimit: 5),
+        seed: 1,
+      )..start();
+      engine.applyModifier(EndlessShop.byId('clean-shift').delta);
+      for (var i = 0; i < 25; i++) {
+        sortCorrectly(engine);
+        spawnNext(engine);
+      }
+      expect(engine.score.comboTier, 4);
+      expect(engine.score.comboTier, lessThan(RunScore.maxTier));
+    });
+
+    test('Quiet Machine drops how many packages can sit on the belt', () {
+      final engine = RunEngine(level: kEndlessShift, seed: 1)..start();
+      expect(engine.tuning.maxActive, RunTuning.maxActiveCeiling);
+      engine.applyModifier(EndlessShop.byId('quiet-machine').delta);
+      expect(engine.tuning.maxActive, RunTuning.maxActiveCeiling - 1);
+    });
+
+    test('Overtime leaves the first board at 22 and delays the next', () {
+      final engine = RunEngine(level: kEndlessShift, seed: 4)..start();
+      engine.applyModifier(EndlessShop.byId('overtime').delta);
+      playToShop(engine);
+      expect(engine.isShopping, isTrue);
+      expect(engine.score.sorted, EndlessShop.blinds.first);
+      engine.skipShop();
+
+      var steps = 0;
+      while (engine.score.sorted < EndlessShop.blinds[1] &&
+          engine.phase != RunPhase.finished &&
+          steps++ < 8000) {
+        if (engine.frontMost != null) {
+          sortCorrectly(engine);
+        }
+        engine.update(1 / 60);
+      }
+      expect(engine.isShopping, isFalse);
+
+      steps = 0;
+      while (!engine.isShopping &&
+          engine.phase != RunPhase.finished &&
+          steps++ < 8000) {
+        if (engine.frontMost != null) {
+          sortCorrectly(engine);
+        }
+        engine.update(1 / 60);
+      }
+      expect(engine.isShopping, isTrue);
+      expect(engine.score.sorted, EndlessShop.blinds[1] + 12);
+      for (final offer in engine.shopOffers) {
+        final listed = EndlessShop.byId(offer.id);
+        expect(
+          offer.cost,
+          listed.cost + EndlessShop.costBumpPerBlind + 3,
+        );
+      }
+    });
+
+    test('PRIORITY BONUS can stamp before the endless unlock', () {
+      final engine = RunEngine(level: kEndlessShift, seed: 3)..start();
+      engine.applyModifier(EndlessShop.byId('priority-bonus').delta);
+      var saw = false;
+      var steps = 0;
+      while (engine.score.sorted < EndlessBoard.priorityAt &&
+          engine.phase != RunPhase.finished &&
+          steps++ < 20000) {
+        skipShopIfOpen(engine);
+        if (engine.active.any((p) => p.spec.stamp == PackageStamp.priority)) {
+          saw = true;
+          break;
+        }
+        if (engine.frontMost != null) {
+          sortCorrectly(engine);
+        }
+        engine.update(1 / 60);
+      }
+      expect(saw, isTrue);
+    });
+
+    test('PRIORITY BONUS extra pay is only on PRIORITY packages', () {
+      final engine = RunEngine(
+        level: testLevel(spawnInterval: 0.65, mistakeLimit: 8),
+        seed: 2,
+      )..start();
+      engine.applyModifier(EndlessShop.byId('priority-bonus').delta);
+
+      int? priorityGain;
+      int? ordinaryGain;
+      var steps = 0;
+      while ((priorityGain == null || ordinaryGain == null) &&
+          engine.phase != RunPhase.finished &&
+          steps++ < 4000) {
+        final front = engine.frontMost;
+        if (front == null) {
+          engine.update(1 / 60);
+          continue;
+        }
+        final before = engine.score.score;
+        final stamped = front.spec.stamp == PackageStamp.priority;
+        sortCorrectly(engine);
+        final gained = engine.score.score - before;
+        if (stamped) {
+          priorityGain ??= gained;
+        } else {
+          ordinaryGain ??= gained;
+        }
+        spawnNext(engine);
+      }
+
+      expect(ordinaryGain, isNotNull);
+      expect(priorityGain, isNotNull);
+      expect(priorityGain, greaterThan(ordinaryGain!));
     });
   });
 }

@@ -19,6 +19,13 @@ class TuningDelta {
     this.telegraphSeconds = 0,
     this.scorePercent = 0,
     this.payPercent = 0,
+    this.priorityRate = 0,
+    this.priorityScorePercent = 0,
+    this.clutchBonus = 0,
+    this.maxComboTier = 0,
+    this.missScorePenalty = 0,
+    this.blindShift = 0,
+    this.costBump = 0,
   });
 
   /// The identity: what a run carries before anything is bought.
@@ -35,6 +42,31 @@ class TuningDelta {
   final int scorePercent;
   final int payPercent;
 
+  /// Added to the live PRIORITY spawn chance. A positive value can introduce
+  /// PRIORITY before the endless unlock because the memo is a choice, and
+  /// level 10 already taught the stamp.
+  final double priorityRate;
+
+  /// Extra integer points on PRIORITY sorts only, added to [scorePercent]
+  /// for that one package.
+  final int priorityScorePercent;
+
+  /// Added to [RunScore.clutchBonus].
+  final int clutchBonus;
+
+  /// Added to [RunScore.maxTier]. Negative lowers the cap.
+  final int maxComboTier;
+
+  /// How many current-tier sorts a miss deducts. Zero is off.
+  final int missScorePenalty;
+
+  /// Extra packages required before later shop blinds. The first blind is
+  /// never shifted — it is how the player reaches the board that sells this.
+  final int blindShift;
+
+  /// Extra added to the per-board slip price bump.
+  final int costBump;
+
   TuningDelta operator +(TuningDelta other) => TuningDelta(
         readWindow: readWindow + other.readWindow,
         spawnInterval: spawnInterval + other.spawnInterval,
@@ -44,6 +76,13 @@ class TuningDelta {
         telegraphSeconds: telegraphSeconds + other.telegraphSeconds,
         scorePercent: scorePercent + other.scorePercent,
         payPercent: payPercent + other.payPercent,
+        priorityRate: priorityRate + other.priorityRate,
+        priorityScorePercent: priorityScorePercent + other.priorityScorePercent,
+        clutchBonus: clutchBonus + other.clutchBonus,
+        maxComboTier: maxComboTier + other.maxComboTier,
+        missScorePenalty: missScorePenalty + other.missScorePenalty,
+        blindShift: blindShift + other.blindShift,
+        costBump: costBump + other.costBump,
       );
 
   /// Whether this delta would change anything at all.
@@ -55,5 +94,12 @@ class TuningDelta {
       chaosRate == 0 &&
       telegraphSeconds == 0 &&
       scorePercent == 0 &&
-      payPercent == 0;
+      payPercent == 0 &&
+      priorityRate == 0 &&
+      priorityScorePercent == 0 &&
+      clutchBonus == 0 &&
+      maxComboTier == 0 &&
+      missScorePenalty == 0 &&
+      blindShift == 0 &&
+      costBump == 0;
 }

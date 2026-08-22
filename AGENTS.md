@@ -122,7 +122,7 @@ tester.widget<GameWidget<SortRushGame>>(
 
 **Milestone 4 is in progress. Gate 4 is not closed.** Evidence: `docs/milestone-4-gate.md`. Recommendation: hold. Do not start Milestone 5.
 
-**Just shipped:** visual/audio slice is committed on `feature/immersive-mode`. Immersive Neon is a presentation toggle, default off. Shop overlay now holds `engine.update` until the paper retracts (criterion 8). Neon wake clips at 10px so it does not rely on the spawn floor. Active-package trails stay rejected. Lobby music still dies on return-to-Home (QA-R2-01). Music files: 10 of 14 OGGs; `l07`/`l08`/`l10`/`results.ogg` still missing.
+**Just shipped:** visual/audio slice is committed on `feature/immersive-mode`. Immersive Neon is a presentation toggle, default off. Shop overlay now holds `engine.update` until the paper retracts (criterion 8). Neon wake clips at 10px so it does not rely on the spawn floor. Active-package trails stay rejected. Endless shop catalog is nine visible-tradeoff memos (stack all three pins; no hidden curses). Lobby music still dies on return-to-Home (QA-R2-01). Music files: 10 of 14 OGGs; `l07`/`l08`/`l10`/`results.ogg` still missing.
 
 **First human play (2026-08-17):** developer, web, verdict "looks good", no P0/P1 named. Questionnaire unanswered. Fairness floors still untimed. This is not the device test and does not close Gate 4.
 

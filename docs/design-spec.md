@@ -136,14 +136,15 @@ Chip titles:
 
 | Catalog id | Chip |
 |---|---|
-| `slow-belt` | `SLOW BELT` |
-| `wide-gap` | `WIDE GAP` |
-| `extra-pip` | `+1 LIFE` |
-| `calm-labels` | `CALM` |
 | `long-warn` | `LONG WARN` |
-| `overtime` | `OT PAY` |
 | `double-stamp` | `DBL STAMP` |
-| `high-volume` | `HIGH VOL` |
+| `wide-gap` | `WIDE GAP` |
+| `hot-belt` | `HOT BELT` |
+| `clean-shift` | `CLEAN SHIFT` |
+| `priority-bonus` | `PRI BONUS` |
+| `salvage-crew` | `SALVAGE` |
+| `overtime` | `OVERTIME` |
+| `quiet-machine` | `QUIET MACH` |
 
 ### 5.3 Results — 60% experimentation
 
@@ -166,12 +167,12 @@ Mid-run Flutter overlay on a drained endless belt. Same family as home and resul
 - **Primary action:** tap a slip (pins it, spends `PAY`, closes the board).
 - **Secondary:** `WALK ON` — full-width, ≥56dp, mute, perforated receipt tab. Skipping must look cheap, not punished.
 - **Hierarchy, top to bottom:** acid outline stamp `DEPOT MEMO` · `PAY N` as a paper sticker · display line `PIN ONE. OR WALK ON.` with a **static** 2px channel split · three canted paper slips with an acid tack · `WALK ON`.
-- **Each slip:** title, one-line effect, `COST N` as a small stamp. Affordable = paper fill, acid tack. Unaffordable = still fully readable, mute tack, `COST` in `warn`, no lock icon, tap is a no-op. Never hide an unaffordable slip.
+- **Each slip:** title, one-line upside · downside, `COST N` as a small stamp. Affordable = paper fill, acid tack. Unaffordable = still fully readable, mute tack, `COST` in `warn`, no lock icon, tap is a no-op. Never hide an unaffordable slip. The middot line is the whole tradeoff — nothing extra is rolled after the pin.
 - **Background:** the frozen empty play field at ~8% plus faint scan lines and a 2px offset rule. The **wall** is the machine. The **slips** stay paper. Do not CRT-wash the memos.
 - **Touch:** each slip ≥56dp tall, 12dp gap. Nothing important in the top 48dp.
 - **Copy, exact:** `DEPOT MEMO` / `PIN ONE. OR WALK ON.` / `PAY N` / `COST N` / `ASK AGAIN` / `WALK ON`. No `SHOP`, `STORE`, `REROLL`, `BUY`.
 - **ASK AGAIN:** paid redraw from the full catalog on the shop seed stream. First costs 3; each further redraw on that board costs 3 more. Unaffordable is mute/`warn` and a no-op. Walk-on stays free.
-- **Live slip cost:** catalog price + `blindIndex × 3`. First board is the list; later boards on the same run cost more. Not a career counter.
+- **Live slip cost:** catalog price + `blindIndex × 3`. First board is the list; later boards on the same run cost more. Not a career counter. Overtime adds another +3 per later board on top of that bump.
 - **Rejected from the Stitch pass, do not build:** a target ring on the belt; chutes as magazine cards; a `COST` stamp on a chute; a light/paper play field; neon package halos; gold coins or rarity colors; a fourth memo; a confirm dialog; animated glitch.
 
 Flutter child of the existing `PlayScreen` `Stack`, same reason pause is not a Flame overlay: it must claim its own hits. `lib/core` still owns buy / skip / affordability.

@@ -33,10 +33,10 @@ void main() {
   test('debugForceRoll uses the supplied pins when given', () {
     final engine = RunEngine(level: kEndlessShift, seed: 7);
     engine.debugForceRoll(
-      pinned: [EndlessShop.catalog[4]],
+      pinned: [EndlessShop.byId('long-warn')],
     );
 
-    expect(engine.pinned.single.id, EndlessShop.catalog[4].id);
+    expect(engine.pinned.single.id, 'long-warn');
     expect(engine.score.comboTier, 5);
   });
 

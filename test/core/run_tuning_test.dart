@@ -107,6 +107,31 @@ void main() {
       expect(tuning.scorePercent, greaterThan(0));
       expect(tuning.payPercent, greaterThan(0));
     });
+
+    test('combo cap cannot fall below the system floor', () {
+      final tuning = RunTuning.resolve(
+        level: levelById(5),
+        modifiers: const TuningDelta(maxComboTier: -99),
+      );
+      expect(tuning.maxComboTier, RunTuning.minComboTier);
+    });
+
+    test('priority rate extra is clamped to a probability', () {
+      expect(
+        RunTuning.resolve(
+          level: levelById(5),
+          modifiers: const TuningDelta(priorityRate: 4),
+        ).priorityRate,
+        1,
+      );
+      expect(
+        RunTuning.resolve(
+          level: levelById(5),
+          modifiers: const TuningDelta(priorityRate: -1),
+        ).priorityRate,
+        0,
+      );
+    });
   });
 
   group('modifiers stack additively', () {

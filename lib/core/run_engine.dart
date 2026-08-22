@@ -370,7 +370,7 @@ class RunEngine {
     // P=32 is already past the first blind. Skip blinds the jump leapt over
     // so the board does not slam open on the first frame of a roll review.
     while (_nextBlind < EndlessShop.blinds.length &&
-        pressure >= EndlessShop.blinds[_nextBlind]) {
+        pressure >= _shopThreshold(_nextBlind)) {
       _nextBlind++;
     }
     if (_phase != RunPhase.finished && _phase != RunPhase.ending) {
@@ -426,6 +426,7 @@ class RunEngine {
       pressure: pressure,
       modifiers: _modifiers,
     );
+    score.comboCap = _tuning.maxComboTier;
     _checkEnd();
   }
 
@@ -458,7 +459,7 @@ class RunEngine {
       if (package.progress < 1.0) {
         return false;
       }
-      score.registerDrop();
+      score.registerDrop(scorePenalty: _missScorePenalty);
       _events.add(const PackageDroppedEvent());
       anyDropped = true;
       return true;
@@ -510,10 +511,15 @@ class RunEngine {
 
     if (binFor(package.spec) == binIndex) {
       final tierBefore = score.comboTier;
+      var scorePercent = _tuning.scorePercent;
+      if (package.spec.stamp == PackageStamp.priority) {
+        scorePercent += _tuning.priorityScorePercent;
+      }
       final gained = score.registerCorrect(
         clutch: clutch,
-        scorePercent: _tuning.scorePercent,
+        scorePercent: scorePercent,
         payPercent: _tuning.payPercent,
+        clutchBonus: _tuning.clutchBonus,
       );
       final tierAfter = score.comboTier;
       _events.add(
@@ -536,7 +542,7 @@ class RunEngine {
       return TapResult.correct;
     }
 
-    score.registerMisroute();
+    score.registerMisroute(scorePenalty: _missScorePenalty);
     _events.add(PackageMisroutedEvent(binIndex));
     _checkEnd();
     _maybeOpenShop();
@@ -810,13 +816,39 @@ class RunEngine {
   }
 
   double get _priorityRate {
+    var base = 0.0;
     if (level.priorityRate > 0) {
-      return level.priorityRate;
+      base = level.priorityRate;
+    } else if (_board != null && pressure >= EndlessBoard.priorityAt) {
+      base = EndlessBoard.priorityRate;
     }
-    if (_board != null && pressure >= EndlessBoard.priorityAt) {
-      return EndlessBoard.priorityRate;
+    final rate = base + _tuning.priorityRate;
+    if (rate <= 0) {
+      return 0;
     }
-    return 0;
+    if (rate > 1) {
+      return 1;
+    }
+    return rate;
+  }
+
+  /// How many current-tier sorts a miss deducts. Zero when the memo is off.
+  int get _missScorePenalty {
+    if (_tuning.missScorePenalty <= 0) {
+      return 0;
+    }
+    return RunScore.baseValue *
+        score.comboTier *
+        _tuning.scorePercent ~/
+        100 *
+        _tuning.missScorePenalty;
+  }
+
+  /// Pressure that opens board [index]. The first blind never shifts — that
+  /// is how the player reaches the memo that would delay the others.
+  int _shopThreshold(int index) {
+    final shift = index == 0 ? 0 : _tuning.blindShift;
+    return EndlessShop.blinds[index] + shift;
   }
 
   void _considerShop() {
@@ -829,7 +861,7 @@ class RunEngine {
     if (_nextBlind >= EndlessShop.blinds.length) {
       return;
     }
-    if (pressure < EndlessShop.blinds[_nextBlind]) {
+    if (pressure < _shopThreshold(_nextBlind)) {
       return;
     }
     _drainingForShop = true;
@@ -853,7 +885,13 @@ class RunEngine {
     );
     return [
       for (final card in drawn)
-        card.withCost(EndlessShop.slipCost(card, _nextBlind)),
+        card.withCost(
+          EndlessShop.slipCost(
+            card,
+            _nextBlind,
+            extraBump: _tuning.costBump,
+          ),
+        ),
     ];
   }
 

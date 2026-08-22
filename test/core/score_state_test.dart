@@ -21,6 +21,11 @@ void main() {
       expect(RunScore.tierFor(100), 5);
       expect(RunScore.tierFor(1000), 5);
     });
+
+    test('a lowered cap never awards x5', () {
+      expect(RunScore.tierFor(20, cap: 4), 4);
+      expect(RunScore.tierFor(100, cap: 4), 4);
+    });
   });
 
   group('RunScore scoring', () {
@@ -83,6 +88,37 @@ void main() {
       score.registerDrop();
       score.registerMisroute();
       expect(score.mistakes, 3);
+    });
+
+    test('a clutch bonus is applied before the score percent', () {
+      final score = RunScore();
+      expect(
+        score.registerCorrect(
+          clutch: true,
+          clutchBonus: 20,
+          scorePercent: 75,
+        ),
+        22,
+      );
+    });
+
+    test('a miss can deduct a current-tier sort', () {
+      final score = RunScore();
+      for (var i = 0; i < 5; i++) {
+        score.registerCorrect();
+      }
+      expect(score.comboTier, 2);
+      expect(score.score, 60);
+      score.registerMisroute(scorePenalty: 20);
+      expect(score.score, 40);
+      expect(score.comboTier, 1);
+    });
+
+    test('a miss penalty cannot drop the score below zero', () {
+      final score = RunScore();
+      score.registerCorrect();
+      score.registerMisroute(scorePenalty: 999);
+      expect(score.score, 0);
     });
   });
 }

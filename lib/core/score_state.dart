@@ -35,18 +35,22 @@ class RunScore {
   /// not the absence of one.
   int bestCombo = 1;
 
+  /// Live combo cap. The shop may lower this; it must not raise it past
+  /// [maxTier].
+  int comboCap = maxTier;
+
   int _consecutive = 0;
 
   int get consecutive => _consecutive;
 
-  int get comboTier => tierFor(_consecutive);
+  int get comboTier => tierFor(_consecutive, cap: comboCap);
 
   /// Misroutes and drops both count against the mistake limit.
   int get mistakes => misrouted + dropped;
 
-  static int tierFor(int consecutive) {
+  static int tierFor(int consecutive, {int cap = maxTier}) {
     final tier = 1 + consecutive ~/ sortsPerTier;
-    return tier > maxTier ? maxTier : tier;
+    return tier > cap ? cap : tier;
   }
 
   /// Registers a correct sort and returns the points gained.
@@ -61,6 +65,7 @@ class RunScore {
     bool clutch = false,
     int scorePercent = 100,
     int payPercent = 100,
+    int clutchBonus = RunScore.clutchBonus,
   }) {
     _consecutive++;
     sorted++;
@@ -90,14 +95,26 @@ class RunScore {
     return true;
   }
 
-  void registerMisroute() {
+  void registerMisroute({int scorePenalty = 0}) {
+    _applyMissPenalty(scorePenalty);
     misrouted++;
     _consecutive = 0;
   }
 
-  void registerDrop() {
+  void registerDrop({int scorePenalty = 0}) {
+    _applyMissPenalty(scorePenalty);
     dropped++;
     _consecutive = 0;
+  }
+
+  void _applyMissPenalty(int scorePenalty) {
+    if (scorePenalty <= 0) {
+      return;
+    }
+    score -= scorePenalty;
+    if (score < 0) {
+      score = 0;
+    }
   }
 
   /// Debug-only. Snaps combo and tallies so a review jump can show a roll

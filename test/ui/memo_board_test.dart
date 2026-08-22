@@ -59,10 +59,11 @@ void main() {
     expect(find.text('BUY'), findsNothing);
     expect(find.text('REROLL'), findsNothing);
     expect(find.textContaining('ASK AGAIN'), findsOneWidget);
-    expect(find.textContaining('PAY'), findsOneWidget);
+    expect(find.text('PAY ${engine.score.pay}'), findsOneWidget);
     for (final card in engine.shopOffers) {
       expect(find.text(card.title), findsOneWidget);
-      expect(find.text('COST ${card.cost}'), findsOneWidget);
+      expect(find.text(card.body), findsOneWidget);
+      expect(find.text('COST ${card.cost}'), findsAtLeastNWidgets(1));
     }
   });
 

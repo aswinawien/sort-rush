@@ -738,3 +738,13 @@ Record decisions as append-only entries.
 - Decision: Hold in the shell. `SortRushGame.overlayHoldsEngine` skips `engine.update` from shop-open until the overlay's `onClosed`. Core `buy` / `skipShop` still commit immediately, so existing shop tests are unchanged. The wake clips to `ChipBurstSpec.maxWakeAboveLip` (10px) even if a caller asks for more. No active-package trail.
 - Consequences: Standard, neon, and reduce-motion now spend the same amount of engine time during the shop — zero until the paper is gone. Shortening the spawn floor can no longer put the wake on a routable package. Does not close Gate 4. Does not fix the lobby-music dispose race.
 - Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Endless shop memos are visible tradeoffs
+
+- Status: approved (human gate, 2026-08-22) — plan confirmed; stacking all three pins, no draw filter
+- Context: The shop loop was already input-randomness: the shop stream draws three slips, the player sees the text, one pin closes the board. Six of eight catalog entries were one-sided buffs. The human asked for every memo to carry a visible upside and downside, with RNG only choosing which tradeoffs appear.
+- Evidence: `HIGH VOLUME` was the only mixed card. `+1 LIFE` and `SLOW THE BELT` had no cost. A hidden post-purchase curse would be output randomness, which the 2026-08-17 shop ruling already forbids. Chute-press delay (Heavy Gloves) would make a committed tap resolve late, which is the same unexplainable miss `DAMAGED` was rejected for as a silent morph.
+- Options considered: (a) hidden random disadvantages; (b) visible tradeoffs, stack all three pins; (c) visible tradeoffs plus a major-modifier draw filter or a two-pin cap.
+- Decision: **Option (b).** Nine memos, each `UPSIDE · DOWNSIDE` on the slip. Downsides live in the additive `TuningDelta`, not a roll after the pin. Same seed plus the same shop choices still replays. Heavy Gloves, `+1 LIFE`, and `SLOW THE BELT` are out. `CALM LABELS` / `OVERTIME PAY` / `HIGH VOLUME` fold into the new list. The first blind stays 22; Overtime only shifts later boards. PRIORITY BONUS may introduce `PRIORITY` before `P=65` because level 10 already taught it. After `P=130` a shorter read window can clamp — documented, not filtered.
+- Consequences: Replay contract unchanged. Fairness floors still clamp last. Catalog is data in `lib/core/shop.dart`. Does not close Gate 4.
+- Owner/gate: human — Gate 4.
