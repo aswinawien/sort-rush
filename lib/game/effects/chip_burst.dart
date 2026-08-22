@@ -40,7 +40,15 @@ class ChipBurstSpec {
   /// This is a *post-action* effect, not an active-package trail: it is drawn
   /// only once the package has been removed from the belt and can no longer be
   /// routed, so it can never decorate something the player still has to read.
+  ///
+  /// Render clips to [maxWakeAboveLip] even if a caller asks for more. The
+  /// 0.65s spawn floor used to be the only thing keeping a 34px wake off the
+  /// next package; the effect now owns that bound itself.
   final double wakeLength;
+
+  /// Hard ceiling, in pixels above the lip. Short enough that a package at
+  /// progress 0.90 cannot share the band.
+  static const double maxWakeAboveLip = 10;
 
   /// Thin paper-like bars that separate from the main spray.
   final int fragments;
@@ -140,7 +148,8 @@ class ChipBurst {
     if (spec.wakeLength <= 0) return;
     final fade = (1 - t).clamp(0.0, 1.0);
     if (fade <= 0) return;
-    final height = spec.wakeLength * fade;
+    final height =
+        math.min(spec.wakeLength * fade, ChipBurstSpec.maxWakeAboveLip);
     final width = 5 * fade;
     canvas.drawRect(
       Rect.fromLTWH(origin.dx - width / 2, origin.dy - height, width, height),

@@ -85,7 +85,7 @@ class BinComponent extends PositionComponent
         ? const ChipBurstSpec(
             count: 5,
             travel: 20,
-            wakeLength: 34,
+            wakeLength: ChipBurstSpec.maxWakeAboveLip,
             fragments: 4,
             flash: 0.5,
           )
@@ -262,11 +262,8 @@ class BinComponent extends PositionComponent
 
     // Last, so chips sit over the chute face.
     //
-    // These do reach above the chute lip — the neon wake by ~24px — so the
-    // claim is not that they stay below it. It is that the belt is never
-    // occupied that low: a package needs progress > 0.90 to enter the band,
-    // and the 0.65s spawn floor against the live read window keeps the
-    // following package further back. Narrow that gap and this needs redoing.
+    // The wake is clipped to [ChipBurstSpec.maxWakeAboveLip] so a shorter
+    // spawn gap cannot put it on a package that is still routable.
     _burst?.render(canvas);
 
     canvas.restore();

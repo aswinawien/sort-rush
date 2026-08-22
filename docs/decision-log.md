@@ -728,3 +728,13 @@ Record decisions as append-only entries.
 - Decision: `docs/session-handoff.md` carries the full state. Three things need a human and are named there rather than assumed: acceptance criterion 8 is violated by the memo overlay window, where a presentation setting advances the endless board-swap clock and can spawn a package behind the covering overlay; whether "which bin?" is permanently the core skill, on which the whole rhythm question depends; and Gate 4, which now needs only the device session, since music exists and the deferral option has closed.
 - Consequences: No code changed for this entry. The criterion 8 fix is specified but deliberately not applied — it moves a gameplay clock, so it is the human's call rather than an agent's. Two QA passes ran today; round one's findings and fixes are recorded in the two preceding entries, and the round-two recording pass was still running when this was written, so its verdict is not included here.
 - Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Shop overlay holds the engine; neon wake owns its bound
+
+- Status: approved (human gate, 2026-08-22) — "no need, just execute them right now"
+- Context: Criterion 8 and the neon wake geometry were named in the handoff as human calls and left unfixed. Active-package trails stay rejected. The human asked to apply the two named fixes on `feature/immersive-mode`.
+- Evidence: `buy` / `skipShop` return the engine to `running` on the tap, while `PlayScreen._shopOpen` stays true through the exit (~160ms standard, ~230ms neon). That window advances `_elapsed`, which drives endless swaps and spawns a package behind the covering overlay. The neon wake was 34px, reaching ~24px above the chute lip, and was only safe because of the 0.65s spawn floor.
+- Options considered: leave both; pause in core until a new `resumeFromShop`; hold `engine.update` in the Flame shell until `_closeShop`, and clip the wake in the effect.
+- Decision: Hold in the shell. `SortRushGame.overlayHoldsEngine` skips `engine.update` from shop-open until the overlay's `onClosed`. Core `buy` / `skipShop` still commit immediately, so existing shop tests are unchanged. The wake clips to `ChipBurstSpec.maxWakeAboveLip` (10px) even if a caller asks for more. No active-package trail.
+- Consequences: Standard, neon, and reduce-motion now spend the same amount of engine time during the shop — zero until the paper is gone. Shortening the spawn floor can no longer put the wake on a routable package. Does not close Gate 4. Does not fix the lobby-music dispose race.
+- Owner/gate: human — Gate 4.

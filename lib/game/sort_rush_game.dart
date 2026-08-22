@@ -58,6 +58,15 @@ class SortRushGame extends FlameGame {
 
   late final RunEngine engine;
 
+  /// The depot overlay is still covering the belt.
+  ///
+  /// `buy` / `skipShop` flip the engine back to [RunPhase.running] on the
+  /// tap, while the paper takes ~160ms (standard) or ~230ms (neon) to
+  /// retract. Without this hold, a presentation setting would advance
+  /// `_elapsed` — and therefore the endless swap clock and the spawn
+  /// timer — behind a covering overlay. Acceptance criterion 8.
+  bool overlayHoldsEngine = false;
+
   final List<BinComponent> _bins = [];
   late final BeltComponent _belt;
   late final SortLineComponent _sortLine;
@@ -183,7 +192,9 @@ class SortRushGame extends FlameGame {
     if (!_laidOut) {
       return;
     }
-    engine.update(dt);
+    if (!overlayHoldsEngine) {
+      engine.update(dt);
+    }
 
     if (level.curve != null) {
       // Throttled inside the bus: setting volume every frame is a platform

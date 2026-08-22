@@ -143,9 +143,11 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
           const SilentMusic(),
       onRunEnded: _handleRunEnded,
       onShopOpened: () {
-        if (mounted) {
-          setState(() => _shopOpen = true);
+        if (!mounted) {
+          return;
         }
+        _game?.overlayHoldsEngine = true;
+        setState(() => _shopOpen = true);
       },
       onReady: _applyJump,
     );
@@ -187,6 +189,9 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
     if (!mounted) {
       return;
     }
+    // Release the engine only once the paper has retracted. The commit
+    // happened on the tap; this is the moment the belt is actually visible.
+    _game?.overlayHoldsEngine = false;
     setState(() => _shopOpen = false);
   }
 

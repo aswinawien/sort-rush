@@ -118,22 +118,22 @@ tester.widget<GameWidget<SortRushGame>>(
 
 ## Where things stand
 
-*Last updated 2026-08-17, SFX shipped; music waits on Gemini files.*
+*Last updated 2026-08-22, on `feature/immersive-mode`.*
 
 **Milestone 4 is in progress. Gate 4 is not closed.** Evidence: `docs/milestone-4-gate.md`. Recommendation: hold. Do not start Milestone 5.
 
-**Just shipped (human: "let's pivot from Suno, I'll generate my track on google gemini instead, also can you add necessary SFX"):** gameplay SFX from `docs/design-spec.md` §6, synthesised at runtime. Mute is `SOUND ON` / `SOUND OFF` on Home. Soundtrack generator is Gemini/Lyria; terms recorded. No music files in the tree yet — drop OGG at `assets/audio/` per `docs/audio-brief.md`.
+**Just shipped:** visual/audio slice is committed on `feature/immersive-mode`. Immersive Neon is a presentation toggle, default off. Shop overlay now holds `engine.update` until the paper retracts (criterion 8). Neon wake clips at 10px so it does not rely on the spawn floor. Active-package trails stay rejected. Lobby music still dies on return-to-Home (QA-R2-01). Music files: 10 of 14 OGGs; `l07`/`l08`/`l10`/`results.ogg` still missing.
 
 **First human play (2026-08-17):** developer, web, verdict "looks good", no P0/P1 named. Questionnaire unanswered. Fairness floors still untimed. This is not the device test and does not close Gate 4.
 
-**Still approved and unbuilt:** music files (human-generated). Quota contracts, hazardous cargo, and the scanner reveal remain designed-not-built.
+**Still approved and unbuilt:** the four missing music files (`l07`, `l08`, `l10`, `results.ogg`). Quota contracts, hazardous cargo, and the scanner reveal remain designed-not-built.
 
 **Bins ceiling** is 3 curated, 2–4 endless. Routing during an endless run must go through `engine.binFor` / `liveBinCount`, never `level.routing.binFor`. Shop RNG is `SeededRng(seed ^ 0x51A70FF)` — never the engine stream.
 
 **What closes Milestone 4, in order, if the gate is held:**
 
-1. Gemini loops dropped in and wired, or an explicit music deferral.
-2. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors.
+1. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors. Music is in; Immersive Neon stays default-off until that session also times it.
+2. Drop `l07`/`l08`/`l10`/`results.ogg` when they exist — filenames are already wired.
 
 **Then Milestone 5:** listing basics, Play internal-test track, release evidence. The signed AAB already builds. Do not start M5 before Gate 4 closes.
 

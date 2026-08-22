@@ -7,6 +7,7 @@ import 'package:sort_rush/game/sort_rush_game.dart';
 import 'package:sort_rush/ui/play_screen.dart';
 import 'package:sort_rush/game/music.dart';
 import 'package:sort_rush/ui/theme.dart';
+import 'package:sort_rush/ui/visual_style.dart';
 
 /// The Flutter shell around the Flame surface.
 ///
@@ -349,6 +350,73 @@ void main() {
       }
       expect(game.engine.pressure, greaterThan(0));
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('shop overlay', () {
+    testWidgets('does not advance the engine while the paper retracts',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(),
+          home: PlayScreen(
+            level: kEndlessShift,
+            seed: 1,
+            jump: DevJump.memo,
+          ),
+        ),
+      );
+      await settleBoot(tester);
+
+      final game = gameOf(tester);
+      expect(find.text('WALK ON'), findsOneWidget);
+      expect(game.overlayHoldsEngine, isTrue);
+
+      await tester.tap(find.text('WALK ON'));
+      await tester.pump();
+      expect(game.engine.isShopping, isFalse);
+      expect(game.engine.phase, RunPhase.running);
+
+      final frozen = game.engine.elapsed;
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.engine.elapsed, frozen,
+          reason: 'standard exit is 160ms; the belt must not move behind it');
+
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(game.overlayHoldsEngine, isFalse);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.engine.elapsed, greaterThan(frozen),
+          reason: 'once the overlay is gone the belt must run again');
+    });
+
+    testWidgets('neon exit is longer and still does not move the clock',
+        (tester) async {
+      await tester.pumpWidget(
+        VisualStyleScope(
+          notifier: VisualStyleController(initial: VisualStyle.immersiveNeon),
+          child: MaterialApp(
+            theme: buildTheme(),
+            home: PlayScreen(
+              level: kEndlessShift,
+              seed: 1,
+              jump: DevJump.memo,
+            ),
+          ),
+        ),
+      );
+      await settleBoot(tester);
+      final game = gameOf(tester);
+
+      await tester.tap(find.text('WALK ON'));
+      await tester.pump();
+      final frozen = game.engine.elapsed;
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(game.engine.elapsed, frozen,
+          reason: 'neon exit is ~230ms; 200ms in, the overlay still holds');
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(game.overlayHoldsEngine, isFalse);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(game.engine.elapsed, greaterThan(frozen));
     });
   });
 }

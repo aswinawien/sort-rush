@@ -94,7 +94,7 @@ void main() {
     const rich = ChipBurstSpec(
       count: 5,
       travel: 20,
-      wakeLength: 34,
+      wakeLength: ChipBurstSpec.maxWakeAboveLip,
       fragments: 4,
       flash: 0.5,
     );
@@ -116,6 +116,40 @@ void main() {
 
       full.update(1.0);
       expect(litPixels(await render(full)), 0, reason: 'must clean up fully');
+    });
+
+    test('an oversized wake is clipped so it cannot reach a live package',
+        () async {
+      final burst = ChipBurst(
+        origin: const Offset(28, 40),
+        color: Tokens.acid,
+        spec: const ChipBurstSpec(
+          count: 1,
+          travel: 0,
+          wakeLength: 80,
+          fragments: 0,
+          flash: 0,
+        ),
+      )..update(0.01);
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, 56, 56));
+      burst.render(canvas);
+      final image = await recorder.endRecording().toImage(56, 56);
+      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+      image.dispose();
+      final rgba = data!.buffer.asUint8List();
+
+      var highest = 55;
+      for (var y = 0; y < 56; y++) {
+        for (var x = 0; x < 56; x++) {
+          if (rgba[(y * 56 + x) * 4 + 3] > 8 && y < highest) highest = y;
+        }
+      }
+      expect(
+        highest,
+        greaterThanOrEqualTo(40 - ChipBurstSpec.maxWakeAboveLip - 1),
+        reason: 'wake must not depend on the spawn floor to stay off the belt',
+      );
     });
 
     test('the wake sits above the lip, never below it', () async {
