@@ -81,15 +81,21 @@ abstract final class PackagePainter {
   }) {
     final path = shapePath(spec.shape, rect);
 
-    // The corrupted state, drawn *behind* the package: a warning-coloured
-    // ghost offset like a mistracked print head. This is the whole `DAMAGED`
+    // The corrupted state, drawn *behind* the package: a ghost of the label
+    // in its own hue, offset like a mistracked print head.
+    //
+    // Deliberately not `warn`. That token means "you lost something" — it is
+    // the misroute flash, the mistake pips and the expiring sort line. A
+    // corrupting package is not a mistake the player made, and dressing it in
+    // the failure colour told them it was. The offset, the tears and the
+    // displaced slab carry the damage instead. This is the whole `DAMAGED`
     // mechanic — the player is meant to see this and hold their tap until the
     // package settles. Without it the shape-shift is silent, which is the
     // version that was rejected for punishing a decision already committed to.
     if (isUnstable) {
       canvas.drawPath(
         shapePath(spec.shape, rect.translate(-3.5, 0)),
-        Paint()..color = Tokens.warn.withValues(alpha: 0.55),
+        Paint()..color = Tokens.hues[spec.colorIndex].withValues(alpha: 0.5),
       );
     }
 
@@ -104,8 +110,7 @@ abstract final class PackagePainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = isActive ? 3.5 : 1.5
-        ..color =
-            isUnstable ? Tokens.warn : (isActive ? Tokens.acid : Tokens.paper),
+        ..color = isActive ? Tokens.acid : Tokens.paper,
     );
 
     if (spec.stamp == PackageStamp.priority) {
@@ -132,7 +137,7 @@ abstract final class PackagePainter {
     canvas.save();
     canvas.clipPath(path);
     final paint = Paint()
-      ..color = Tokens.warn.withValues(alpha: 0.85)
+      ..color = Tokens.mute.withValues(alpha: 0.85)
       ..style = PaintingStyle.fill;
     for (final at in const [0.24, 0.42, 0.63, 0.81]) {
       final y = rect.top + rect.height * at;

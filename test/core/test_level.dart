@@ -64,9 +64,8 @@ void skipShopIfOpen(RunEngine engine) {
 /// Plays correctly until the depot board opens, or gives up.
 void playToShop(RunEngine engine, {int steps = 8000}) {
   var n = 0;
-  while (!engine.isShopping &&
-      engine.phase != RunPhase.finished &&
-      n++ < steps) {
+  while (
+      !engine.isShopping && engine.phase != RunPhase.finished && n++ < steps) {
     if (engine.frontMost != null) {
       sortCorrectly(engine);
     }

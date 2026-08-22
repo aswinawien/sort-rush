@@ -109,9 +109,9 @@ Type: oversized display numerals for score and combo; compact mono for all syste
 - **Purpose:** start a run in one tap.
 - **Player question:** "What is this and how do I start?"
 - **Primary action:** `PUNCH IN` (starts endless, or next unfinished curated level).
-- **Secondary:** `SHIFTS` (level select), `SETTINGS`, best score readout.
+- **Secondary:** `SHIFTS` (level select), `FLOOR RECORD`, `SOUND ON` / `SOUND OFF`. Settings stays a budgeted unbuilt screen.
 - **Treatment:** misregistered title with a 2px channel offset, faint scan lines, a slightly rotated sticker showing the best score, mono depot copy.
-- **Copy:** title `SORT RUSH`; under it, `DEPOT 7 · NIGHT SHIFT`; best score as `BEST · 0`.
+- **Copy:** title `SORT RUSH`; under it, `DEPOT 7 · NIGHT SHIFT`; mute `PAY N` (capped carry, 12); local endless board as `FLOOR RECORD` (empty: `NO CLOCKINGS`); `SOUND ON` / `SOUND OFF`. Not a global leaderboard.
 
 **Bold vs. safe:** the bold version animates the title's misregistration continuously; the safe fallback offsets it once, statically. Continuous motion behind a primary CTA is a comprehension risk and a battery cost. **Selected: safe fallback**, with the animated version fired once on entry only.
 
@@ -169,7 +169,9 @@ Mid-run Flutter overlay on a drained endless belt. Same family as home and resul
 - **Each slip:** title, one-line effect, `COST N` as a small stamp. Affordable = paper fill, acid tack. Unaffordable = still fully readable, mute tack, `COST` in `warn`, no lock icon, tap is a no-op. Never hide an unaffordable slip.
 - **Background:** the frozen empty play field at ~8% plus faint scan lines and a 2px offset rule. The **wall** is the machine. The **slips** stay paper. Do not CRT-wash the memos.
 - **Touch:** each slip ≥56dp tall, 12dp gap. Nothing important in the top 48dp.
-- **Copy, exact:** `DEPOT MEMO` / `PIN ONE. OR WALK ON.` / `PAY N` / `COST N` / `WALK ON`. No `SHOP`, `STORE`, `REROLL`, `BUY`.
+- **Copy, exact:** `DEPOT MEMO` / `PIN ONE. OR WALK ON.` / `PAY N` / `COST N` / `ASK AGAIN` / `WALK ON`. No `SHOP`, `STORE`, `REROLL`, `BUY`.
+- **ASK AGAIN:** paid redraw from the full catalog on the shop seed stream. First costs 3; each further redraw on that board costs 3 more. Unaffordable is mute/`warn` and a no-op. Walk-on stays free.
+- **Live slip cost:** catalog price + `blindIndex × 3`. First board is the list; later boards on the same run cost more. Not a career counter.
 - **Rejected from the Stitch pass, do not build:** a target ring on the belt; chutes as magazine cards; a `COST` stamp on a chute; a light/paper play field; neon package halos; gold coins or rarity colors; a fourth memo; a confirm dialog; animated glitch.
 
 Flutter child of the existing `PlayScreen` `Stack`, same reason pause is not a Flame overlay: it must claim its own hits. `lib/core` still owns buy / skip / affordability.
@@ -178,7 +180,7 @@ Flutter child of the existing `PlayScreen` `Stack`, same reason pause is not a F
 
 ## 6. Audio and haptics
 
-Every cue is redundant with a visual, so sound-off play loses nothing.
+Every cue is redundant with a visual, so sound-off play loses nothing. Gameplay SFX are synthesised ticks (`lib/game/sfx.dart`), not files. Music, when the human drops Gemini loops in `assets/audio/`, is atmosphere only.
 
 | Event | Sound | Haptic |
 |---|---|---|
@@ -236,9 +238,9 @@ Randomness: a single seeded `Random` owned by the run, injected at construction.
 
 Pure Dart: `RunConfig`, `LevelConfig`, `DifficultyCurve`, `PackageSpec`, `RoutingRule`, `ScoreState`, `ComboState`, `RunState`, `SeededRng`, `ScoreStore` (interface).
 
-Flame: `SortRushGame`, `BeltComponent`, `SpawnerComponent`, `PackageComponent`, `BinComponent`, `SortLineComponent`, `HudComponent`, `FeedbackBurst`.
+Flame: `SortRushGame`, `BeltComponent`, `SpawnerComponent`, `PackageComponent`, `BinComponent`, `SortLineComponent`, `HudComponent`, `FeedbackBurst`, `SfxBus`.
 
-Flutter: `HomeScreen`, `SettingsScreen`, `ResultsScreen`, `PauseOverlay`, `CountdownOverlay`, `ManifestPrinter`, `MemoBoard`.
+Flutter: `HomeScreen`, `SettingsScreen`, `ResultsScreen`, `PauseOverlay`, `CountdownOverlay`, `ManifestPrinter`, `MemoBoard`, `ScoreBoard`, `PrefsScoreStore`, `AudioController`.
 
 ---
 

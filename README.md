@@ -138,12 +138,11 @@ Shipped: curated 1–10, endless (grow / swap / shop / `PRIORITY`), double-or-no
 Still required before Gate 4 can close:
 
 1. **A human plays it.** Logged 2026-08-17 — developer, web, qualitative “looks good.” Questionnaire unanswered. Fairness floors still unmeasured.
-2. **Persistence.** Best run via `shared_preferences`. The pitch is beating your own score and nothing stores one.
-3. **Backgrounding and relaunch tests.** Backgrounding holds the belt and is tested. Killed-process relaunch needs persistence first.
-4. **Audio.** Approved, blocked on Suno commercial terms recorded in the decision log. Mute must leave the game fully playable.
-5. **A device playtest that counts.** Emulator smoke found three P1s; that is not the questionnaire in `docs/testing-strategy.md`.
+2. **Backgrounding and relaunch tests.** Backgrounding holds the belt. Endless scores now survive a fresh `ScoreStore`; a killed process still does not restore an in-progress belt.
+3. **Audio.** SFX shipped. Gemini/Lyria terms recorded. Music waits on files in `assets/audio/`. Mute is on Home and must leave the game fully playable.
+4. **A device playtest that counts.** Emulator smoke found three P1s; that is not the questionnaire in `docs/testing-strategy.md`.
 
-Settings is budgeted and unbuilt. Quota / hazardous cargo / scanner stay designed-not-built.
+Settings is budgeted and unbuilt. Quota / hazardous cargo / scanner stay designed-not-built. Endless is still ungated — do not invent unlock-gating.
 
 ### Milestone 5 — after Gate 4
 

@@ -36,7 +36,7 @@ Flutter 3.47.0 stable. The project floor is 3.41.0 (Flame 1.36.0 raised it).
 ```bash
 flutter pub get
 flutter analyze      # must stay clean — no issues, ever
-flutter test         # 265 passing as of 2026-08-17
+flutter test         # 312 passing as of 2026-08-17
 ```
 
 **Android builds run on the Windows side, not in WSL.** Flutter 3.47.0 is installed at `E:\flutter-sdk\flutter`, the Android SDK is at `C:\Users\aswin\AppData\Local\Android\Sdk`, and the repository is reachable from Windows as `E:\Game Dev\sort-rush` — the same files, no copying. Drive it from WSL through interop:
@@ -118,27 +118,26 @@ tester.widget<GameWidget<SortRushGame>>(
 
 ## Where things stand
 
-*Last updated 2026-08-17, results typewriter shipped.*
+*Last updated 2026-08-17, SFX shipped; music waits on Gemini files.*
 
 **Milestone 4 is in progress. Gate 4 is not closed.** Evidence: `docs/milestone-4-gate.md`. Recommendation: hold. Do not start Milestone 5.
 
-**Just shipped (human: "also can you add this animation?"):** results types the manifest character-by-character with a blinking cursor. No jitter, no `dart:math` Random. Tap skips. Reduce-motion prints at once.
+**Just shipped (human: "let's pivot from Suno, I'll generate my track on google gemini instead, also can you add necessary SFX"):** gameplay SFX from `docs/design-spec.md` §6, synthesised at runtime. Mute is `SOUND ON` / `SOUND OFF` on Home. Soundtrack generator is Gemini/Lyria; terms recorded. No music files in the tree yet — drop OGG at `assets/audio/` per `docs/audio-brief.md`.
 
 **First human play (2026-08-17):** developer, web, verdict "looks good", no P0/P1 named. Questionnaire unanswered. Fairness floors still untimed. This is not the device test and does not close Gate 4.
 
-**Still approved and unbuilt:** audio. Quota contracts, hazardous cargo, and the scanner reveal remain designed-not-built.
+**Still approved and unbuilt:** music files (human-generated). Quota contracts, hazardous cargo, and the scanner reveal remain designed-not-built.
 
 **Bins ceiling** is 3 curated, 2–4 endless. Routing during an endless run must go through `engine.binFor` / `liveBinCount`, never `level.routing.binFor`. Shop RNG is `SeededRng(seed ^ 0x51A70FF)` — never the engine stream.
 
 **What closes Milestone 4, in order, if the gate is held:**
 
-1. Persistence — best run. Do not invent unlock-gating endless; that is undecided.
-2. Audio only after Suno Play terms are recorded in the decision log, or an explicit deferral.
-3. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors.
+1. Gemini loops dropped in and wired, or an explicit music deferral.
+2. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors.
 
 **Then Milestone 5:** listing basics, Play internal-test track, release evidence. The signed AAB already builds. Do not start M5 before Gate 4 closes.
 
-**Do not start audio, quota contracts, hazardous cargo, or the scanner unless the human asks.**
+**Do not start quota contracts, hazardous cargo, or the scanner unless the human asks.** Do not invent unlock-gating endless. Do not invent a Settings screen for mute — it already lives on Home.
 
 ---
 
@@ -146,9 +145,8 @@ tester.widget<GameWidget<SortRushGame>>(
 
 The temptation is to add features. Resist it. In rough order of what actually helps:
 
-1. **Persistence — best run.** The pitch is beating your own score and nothing stores one. Do not invent unlock-gating endless.
-2. **Coverage that still has no test** — killed-process relaunch. Backgrounding already holds the belt. Relaunch needs persistence first.
-3. **Never** add monetization. The constitution forbids it until repeat play is demonstrated by human testing. The first play is logged; that is not yet the repeat-play evidence this rule wants.
+1. **Coverage that still has no test** — killed-process relaunch of a full run. Scores now survive a fresh store; the belt itself still does not.
+2. **Never** add monetization. The constitution forbids it until repeat play is demonstrated by human testing. The first play is logged; that is not yet the repeat-play evidence this rule wants.
 
 Every task report must include: current state, goal, evidence, proposed action, files to change, tests to run, risks, explicit non-goals, approval status, and decision-log update. That list is from `CLAUDE.md` and it is not optional.
 
@@ -167,7 +165,7 @@ Every task report must include: current state, goal, evidence, proposed action, 
 | `docs/design-spec.md` | Screen-by-screen spec, Flutter/Flame mapping, open questions in §12. |
 | `docs/level-spec.md` | Levels 1–10, endless curve, difficulty parameters, fairness floors. |
 | `docs/backlog.md` | Captured intent that is not designed and not scheduled. Not approved, not buildable as written. |
-| `docs/audio-brief.md` | Soundtrack direction and generation prompts. Production material, not a decision; the audio decision itself was approved at Gate 3. |
+| `docs/audio-brief.md` | Soundtrack direction and Gemini/Lyria prompts. Production material, not a decision. SFX are synthesised; music waits on files. |
 | `docs/testing-strategy.md` | Test layers, required scenarios, bug format, severity rubric. |
 | `docs/screenshots/` | Web captures of every screen. Layout evidence, not device evidence. |
 | `docs/depot-record.html` | Shift Record dashboard, generated from the decision log. |

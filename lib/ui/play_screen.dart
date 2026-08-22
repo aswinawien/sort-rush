@@ -5,10 +5,14 @@ import 'package:flutter/services.dart';
 import '../core/level_config.dart';
 import '../core/run_engine.dart';
 import '../core/run_summary.dart';
+import '../game/sfx.dart';
+import '../game/music.dart';
 import '../game/sort_rush_game.dart';
+import 'audio_scope.dart';
 import 'memo_board.dart';
 import 'results_screen.dart';
 import 'theme.dart';
+import 'visual_style.dart';
 import 'widgets/fit_or_scroll.dart';
 
 /// Debug-only landing for a [PlayScreen] already in the right overlay.
@@ -27,6 +31,7 @@ class PlayScreen extends StatefulWidget {
     this.seed,
     this.wager = false,
     this.jump,
+    this.startingPay = 0,
   });
 
   final LevelConfig level;
@@ -40,6 +45,9 @@ class PlayScreen extends StatefulWidget {
   /// Skips the briefing and opens already in the named overlay. Null in
   /// every release path.
   final DevJump? jump;
+
+  /// Capped leftover pay from the last endless clocking. Curated ignores it.
+  final int startingPay;
 
   @override
   State<PlayScreen> createState() => _PlayScreenState();
@@ -71,8 +79,13 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _music?.stop();
     super.dispose();
   }
+
+  /// Captured on the way in: `dispose` runs after the element is detached, so
+  /// the scope is no longer reachable by then.
+  MusicBus? _music;
 
   /// An interruption holds the belt rather than acting on it.
   ///
@@ -96,12 +109,38 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
     setState(() {
       _game = _createGame();
     });
+    _startMusic();
+  }
+
+  /// Endless crossfades two loops by pressure; a curated shift plays its own
+  /// track. Music is atmosphere either way — nothing here is a cue.
+  void _startMusic() {
+    final music = AudioScope.maybeOf(context)?.music;
+    if (music == null) {
+      return;
+    }
+    if (widget.level.curve != null) {
+      music.playEndless();
+    } else {
+      music.playLevel(widget.level.id);
+    }
   }
 
   SortRushGame _createGame() {
     return SortRushGame(
       level: widget.level,
       seed: widget.seed ?? DateTime.now().millisecondsSinceEpoch,
+      startingPay: widget.startingPay,
+      sfx: context.getInheritedWidgetOfExactType<AudioScope>()?.notifier?.sfx ??
+          const SilentSfx(),
+      // `getInheritedWidgetOfExactType`, not `maybeOf`: `_createGame` runs
+      // from `initState` on a dev jump, and `maybeOf` registers a dependency,
+      // which is illegal there. Same reason the sfx lookup above uses it.
+      music: context
+              .getInheritedWidgetOfExactType<AudioScope>()
+              ?.notifier
+              ?.music ??
+          const SilentMusic(),
       onRunEnded: _handleRunEnded,
       onShopOpened: () {
         if (mounted) {
@@ -180,7 +219,11 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
     // bars, and a display cutout keeps occluding even in immersive mode, so
     // this is the fallback that keeps the HUD legible in either state.
     game.safeTop = MediaQuery.paddingOf(context).top;
-    game.reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final profile = VisualProfile.of(context);
+    game.reduceMotion = profile.reduceMotion;
+    game.neon = profile.neon;
+
+    _music ??= AudioScope.maybeOf(context)?.music;
 
     return PopScope(
       canPop: _paused,
@@ -221,8 +264,7 @@ class _PlayScreenState extends State<PlayScreen> with WidgetsBindingObserver {
               ),
             ),
             if (_paused) _PauseScrim(onResume: _togglePause),
-            if (_shopOpen)
-              MemoBoard(engine: game.engine, onClosed: _closeShop),
+            if (_shopOpen) MemoBoard(engine: game.engine, onClosed: _closeShop),
           ],
         ),
       ),
@@ -333,4 +375,3 @@ class _PauseScrim extends StatelessWidget {
     );
   }
 }
-

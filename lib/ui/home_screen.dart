@@ -2,24 +2,55 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/daily_seed.dart';
+import '../core/floor_board.dart';
 import '../core/level_config.dart';
 import '../core/levels.dart';
 import '../core/run_engine.dart';
 import '../core/run_summary.dart';
+import 'options_screen.dart';
+import 'audio_scope.dart';
 import 'play_screen.dart';
 import 'results_screen.dart';
+import 'score_board.dart';
 import 'theme.dart';
 import 'widgets/fit_or_scroll.dart';
 import 'widgets/scan_lines.dart';
 
 /// Home carries the full zine treatment. The one rule it still owes the
 /// player is that starting a run takes exactly one tap.
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, this.showDevTools = kDebugMode});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, this.showDevTools = kDebugMode && kIsWeb});
 
-  /// Debug jumps for UI review. Tests pass this explicitly — widget tests
-  /// always run in debug, so they cannot rely on [kDebugMode] alone.
+  /// Debug jumps for UI review. Defaults to web debug only — Android debug
+  /// APKs and the release AAB show nothing. Tests pass this explicitly
+  /// because the VM test runner is not web.
   final bool showDevTools;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resumeLobby();
+  }
+
+  /// Home owns the lobby loop, and has to reclaim it on the way back in.
+  ///
+  /// `didChangeDependencies` does not re-fire when a run pops back to an
+  /// already-mounted Home, and `PlayScreen.dispose` has stopped the music by
+  /// then — so without a route-aware hook the app is silent on Home for the
+  /// rest of the session.
+  /// `RouteAware` would need an app-wide `RouteObserver` to fire at all, so
+  /// the resume rides on the push instead — it lands when the run pops back.
+  void _resumeLobby() {
+    if (!mounted) {
+      return;
+    }
+    AudioScope.maybeOf(context)?.music.playHome();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +91,19 @@ class HomeScreen extends StatelessWidget {
                       context,
                       kEndlessShift,
                       seed: dailySeed(),
+                      startingPay:
+                          ScoreBoardScope.maybeOf(context)?.wallet ?? 0,
                     ),
                   ),
-                  if (showDevTools) ...[
+                  const SizedBox(height: 22),
+                  _FloorRecord(
+                    entries:
+                        ScoreBoardScope.maybeOf(context)?.entries ?? const [],
+                    wallet: ScoreBoardScope.maybeOf(context)?.wallet ?? 0,
+                  ),
+                  const SizedBox(height: 16),
+                  const _OptionsRow(),
+                  if (widget.showDevTools) ...[
                     const SizedBox(height: 22),
                     _DevJumpStrip(
                       onMemo: () => _jumpPlay(context, DevJump.memo),
@@ -82,12 +123,22 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _startLevel(BuildContext context, LevelConfig level, {int? seed}) {
-    Navigator.of(context).push(
+  Future<void> _startLevel(
+    BuildContext context,
+    LevelConfig level, {
+    int? seed,
+    int startingPay = 0,
+  }) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PlayScreen(level: level, seed: seed),
+        builder: (_) => PlayScreen(
+          level: level,
+          seed: seed,
+          startingPay: startingPay,
+        ),
       ),
     );
+    _resumeLobby();
   }
 
   void _jumpPlay(BuildContext context, DevJump jump) {
@@ -194,9 +245,8 @@ class _PunchInButton extends StatelessWidget {
 /// The way into endless.
 ///
 /// Set apart from the numbered shifts rather than listed among them: it is a
-/// different mode, not an eleventh lesson, and the product brief unlocks it
-/// after onboarding. There is no persistence yet to gate on, so it is visible
-/// from the start — recorded as interim in docs/decision-log.md.
+/// different mode, not an eleventh lesson. Unlocking after onboarding is
+/// still undecided, so it stays visible from the start.
 class _EndlessRow extends StatelessWidget {
   const _EndlessRow({required this.onTap});
 
@@ -237,7 +287,80 @@ class _EndlessRow extends StatelessWidget {
   }
 }
 
-/// Mute, under the endless row, never on PUNCH IN. Release builds omit it.
+/// The way into settings. Home keeps one entry rather than a growing pile of
+/// inline toggles.
+class _OptionsRow extends StatelessWidget {
+  const _OptionsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const OptionsScreen()),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            Expanded(child: Text('OPTIONS', style: Tokens.body)),
+            Text('▸', style: Tokens.label.copyWith(color: Tokens.acid)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Mute local board. Not a global leaderboard — v1 has no backend.
+class _FloorRecord extends StatelessWidget {
+  const _FloorRecord({required this.entries, required this.wallet});
+
+  final List<BoardEntry> entries;
+  final int wallet;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('floor-record'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('PAY $wallet', style: Tokens.label),
+        const SizedBox(height: 14),
+        Text('FLOOR RECORD', style: Tokens.label),
+        const SizedBox(height: 8),
+        if (entries.isEmpty)
+          Text('NO CLOCKINGS', style: Tokens.label)
+        else
+          for (var i = 0; i < entries.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Text(
+                    (i + 1).toString().padLeft(2, '0'),
+                    style: Tokens.label.copyWith(color: Tokens.acid),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      '${entries[i].score}',
+                      style: Tokens.body,
+                    ),
+                  ),
+                  Text(
+                    '${entries[i].sorted} SORTED',
+                    style: Tokens.label,
+                  ),
+                ],
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+/// Mute, under the endless row, never on PUNCH IN. Web debug only.
 class _DevJumpStrip extends StatelessWidget {
   const _DevJumpStrip({
     required this.onMemo,

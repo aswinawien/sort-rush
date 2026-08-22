@@ -5,6 +5,7 @@ import 'package:sort_rush/core/levels.dart';
 import 'package:sort_rush/core/run_engine.dart';
 import 'package:sort_rush/game/sort_rush_game.dart';
 import 'package:sort_rush/ui/play_screen.dart';
+import 'package:sort_rush/game/music.dart';
 import 'package:sort_rush/ui/theme.dart';
 
 /// The Flutter shell around the Flame surface.
@@ -268,6 +269,86 @@ void main() {
 
       expect(find.text('DEPOT'), findsOneWidget);
       expect(find.byType(GameWidget<SortRushGame>), findsNothing);
+    });
+  });
+
+  group('endless boots', () {
+    testWidgets('NIGHT SHIFT starts without throwing', (tester) async {
+      // Regression: the endless music crossfade read `game.engine` from
+      // `build`, but `engine` is late-initialised in Flame's async `onLoad`.
+      // The first build after START BELT therefore threw
+      // LateInitializationError — and only on endless, because curated shifts
+      // have no curve and skipped the branch entirely.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(),
+          home: PlayScreen(level: kEndlessShift, seed: 7),
+        ),
+      );
+      await tester.tap(find.text('START BELT'));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull,
+          reason: 'endless must survive the frame before onLoad completes');
+
+      await settleBoot(tester);
+      expect(tester.takeException(), isNull);
+      expect(gameOf(tester).engine.phase, RunPhase.running);
+    });
+
+    testWidgets('the crossfade is driven by the loop, not by build',
+        (tester) async {
+      // The crash was `build` reading `game.engine` before Flame's async
+      // `onLoad` had run. Driving it from `update` also fixes a second bug:
+      // from `build` the mix only moved when something else rebuilt the
+      // screen, which in endless is almost never.
+      final music = RecordingMusic();
+      final game = SortRushGame(
+        level: kEndlessShift,
+        seed: 7,
+        music: music,
+        onRunEnded: (_) {},
+      );
+      await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
+      await settleBoot(tester);
+
+      expect(music.mix, 0);
+      for (var i = 0; i < 400; i++) {
+        final front = game.engine.frontMost;
+        if (front != null) {
+          game.handleBinTap(game.engine.binFor(front.spec));
+        }
+        game.update(0.1);
+      }
+      expect(game.engine.pressure, greaterThan(0));
+      expect(music.mix, greaterThan(0),
+          reason: 'the loop must move the crossfade with pressure');
+    });
+
+    testWidgets('endless survives repeated frames from first build',
+        (tester) async {
+      // Driving the mix from `build` would only update when something else
+      // happened to rebuild the screen, which in endless is almost never.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(),
+          home: PlayScreen(level: kEndlessShift, seed: 7),
+        ),
+      );
+      await tester.tap(find.text('START BELT'));
+      await settleBoot(tester);
+
+      final game = gameOf(tester);
+      expect(game.engine.pressure, 0);
+      for (var i = 0; i < 30; i++) {
+        final front = game.engine.frontMost;
+        if (front != null) {
+          game.handleBinTap(game.engine.binFor(front.spec));
+        }
+        game.update(0.2);
+      }
+      expect(game.engine.pressure, greaterThan(0));
+      expect(tester.takeException(), isNull);
     });
   });
 }

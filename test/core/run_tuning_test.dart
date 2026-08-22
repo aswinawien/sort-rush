@@ -16,7 +16,8 @@ void main() {
     test('with no modifiers it is the level', () {
       for (final level in kCuratedLevels) {
         final tuning = RunTuning.resolve(level: level);
-        expect(tuning.readWindow, level.readWindow, reason: 'level ${level.id}');
+        expect(tuning.readWindow, level.readWindow,
+            reason: 'level ${level.id}');
         expect(tuning.spawnInterval, level.spawnInterval);
         expect(tuning.maxActive, level.maxActive);
         expect(tuning.mistakeLimit, level.mistakeLimit);

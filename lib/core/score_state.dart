@@ -26,8 +26,8 @@ class RunScore {
   int misrouted = 0;
   int dropped = 0;
 
-  /// Within-run currency. Endless only spends it; curated never earns it
-  /// in a way that matters. Integer, so a replay stays exact.
+  /// Shop cash. Endless spends it; leftover can carry into the next
+  /// endless run, capped. Integer, so a replay stays exact.
   int pay = 0;
   int _payTally = 0;
 

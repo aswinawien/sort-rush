@@ -161,8 +161,11 @@ class ShopOpenedEvent extends RunEvent {
 /// routing, and state-transition tests possible without a game loop or a
 /// widget tree, and it is the main defence against hidden coupling.
 class RunEngine {
-  RunEngine({required this.level, required this.seed})
-      : _rng = SeededRng(seed),
+  RunEngine({
+    required this.level,
+    required this.seed,
+    int startingPay = 0,
+  })  : _rng = SeededRng(seed),
         // Own stream, derived from the run seed, so a shop draw can never
         // shift package spawns. XOR is a bijection: every seed still maps
         // to a distinct shop stream.
@@ -172,7 +175,11 @@ class RunEngine {
             ? null
             : ChuteBoard(
                 EndlessBoard.ladder.sublist(0, EndlessBoard.openingCount),
-              );
+              ) {
+    if (_board != null) {
+      score.pay = EndlessShop.clampWallet(startingPay);
+    }
+  }
 
   /// How long the belt keeps still after a run ends, before results show.
   /// An instant cut on failure reads as a crash and robs the player of the
@@ -205,6 +212,7 @@ class RunEngine {
   double _nextSwapAt = EndlessBoard.swapInterval;
   bool _drainingForShop = false;
   int _nextBlind = 0;
+  int _redrawsThisBoard = 0;
   List<CardSpec> _shopOffers = const [];
   final List<CardSpec> _pinned = [];
 
@@ -236,15 +244,17 @@ class RunEngine {
   /// Memos currently on the board. Empty when the shop is closed.
   List<CardSpec> get shopOffers => _shopOffers;
 
+  /// What the next `ASK AGAIN` costs on this board.
+  int get redrawCost => EndlessShop.redrawCost(_redrawsThisBoard);
+
   /// Memos pinned this run, in buy order. Lasts until the run ends.
   List<CardSpec> get pinned => List.unmodifiable(_pinned);
 
   bool get isShopping => _phase == RunPhase.shopping;
 
   /// Fill of the current pressure band, 0–1. Curated levels have no band.
-  double get pressureProgress => _board == null
-      ? 0
-      : EndlessBoard.pressureProgress(pressure);
+  double get pressureProgress =>
+      _board == null ? 0 : EndlessBoard.pressureProgress(pressure);
 
   /// Pressure index. Increments per correct sort and never decreases, which
   /// is exactly what `score.sorted` already does — so there is no second
@@ -320,10 +330,8 @@ class RunEngine {
     _telegraph = null;
     _drainingForShop = false;
     score.pay = pay;
-    _shopOffers = _shopRng.take(
-      List<CardSpec>.of(EndlessShop.catalog),
-      EndlessShop.offerCount,
-    );
+    _redrawsThisBoard = 0;
+    _shopOffers = _drawHand();
     _phase = RunPhase.shopping;
     _events.add(ShopOpenedEvent(_shopOffers));
   }
@@ -828,18 +836,39 @@ class RunEngine {
   }
 
   void _maybeOpenShop() {
-    if (!_drainingForShop ||
-        _active.isNotEmpty ||
-        _phase != RunPhase.running) {
+    if (!_drainingForShop || _active.isNotEmpty || _phase != RunPhase.running) {
       return;
     }
-    _shopOffers = _shopRng.take(
-      List<CardSpec>.of(EndlessShop.catalog),
-      EndlessShop.offerCount,
-    );
+    _redrawsThisBoard = 0;
+    _shopOffers = _drawHand();
     _drainingForShop = false;
     _phase = RunPhase.shopping;
     _events.add(ShopOpenedEvent(_shopOffers));
+  }
+
+  List<CardSpec> _drawHand() {
+    final drawn = _shopRng.take(
+      List<CardSpec>.of(EndlessShop.catalog),
+      EndlessShop.offerCount,
+    );
+    return [
+      for (final card in drawn)
+        card.withCost(EndlessShop.slipCost(card, _nextBlind)),
+    ];
+  }
+
+  /// Pays for a new hand. No-op if the shop is closed or the run cannot
+  /// afford the live redraw cost. Does not close the board.
+  bool redrawShop() {
+    if (_phase != RunPhase.shopping) {
+      return false;
+    }
+    if (!score.spend(redrawCost)) {
+      return false;
+    }
+    _shopOffers = _drawHand();
+    _redrawsThisBoard++;
+    return true;
   }
 
   /// Pins a memo. No-op if the shop is closed or the run cannot afford it.
@@ -870,6 +899,7 @@ class RunEngine {
 
   void _closeShop() {
     _shopOffers = const [];
+    _redrawsThisBoard = 0;
     _nextBlind++;
     _phase = RunPhase.running;
     _spawnTimer = 0;

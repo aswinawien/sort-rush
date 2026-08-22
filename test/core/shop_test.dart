@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sort_rush/core/floor_board.dart';
 import 'package:sort_rush/core/levels.dart';
 import 'package:sort_rush/core/run_engine.dart';
 import 'package:sort_rush/core/run_tuning.dart';
@@ -23,7 +24,8 @@ void main() {
       expect(engine.isShopping, isTrue);
       expect(engine.active, isEmpty);
       expect(engine.shopOffers, hasLength(EndlessShop.offerCount));
-      expect(engine.score.sorted, greaterThanOrEqualTo(EndlessShop.blinds.first));
+      expect(
+          engine.score.sorted, greaterThanOrEqualTo(EndlessShop.blinds.first));
     });
 
     test('the same seed pins the same memos', () {
@@ -105,7 +107,8 @@ void main() {
 
     test('no card text hides a probability', () {
       for (final card in EndlessShop.catalog) {
-        expect(card.body.contains('%') && card.body.contains('chance'), isFalse);
+        expect(
+            card.body.contains('%') && card.body.contains('chance'), isFalse);
         expect(card.id.contains('lucky'), isFalse);
       }
     });
@@ -156,6 +159,97 @@ void main() {
       }
 
       expect(run(12), run(12));
+    });
+
+    test('the first board uses catalog prices', () {
+      final engine = RunEngine(level: kEndlessShift, seed: 4)..start();
+      playToShop(engine);
+      for (final offer in engine.shopOffers) {
+        final listed = EndlessShop.catalog.firstWhere((c) => c.id == offer.id);
+        expect(offer.cost, listed.cost);
+      }
+    });
+
+    test('a later board costs more than the catalog', () {
+      final engine = RunEngine(level: kEndlessShift, seed: 4)..start();
+      playToShop(engine);
+      engine.skipShop();
+      playToShop(engine);
+      expect(engine.isShopping, isTrue);
+      for (final offer in engine.shopOffers) {
+        final listed = EndlessShop.catalog.firstWhere((c) => c.id == offer.id);
+        expect(offer.cost, listed.cost + EndlessShop.costBumpPerBlind);
+      }
+    });
+
+    test('an endless run can start with carried pay, capped', () {
+      final carried = RunEngine(
+        level: kEndlessShift,
+        seed: 4,
+        startingPay: 8,
+      );
+      expect(carried.score.pay, 8);
+
+      final fat = RunEngine(
+        level: kEndlessShift,
+        seed: 4,
+        startingPay: 40,
+      );
+      expect(fat.score.pay, FloorBoard.walletCap);
+
+      final curated = RunEngine(level: testLevel(), seed: 1, startingPay: 8);
+      expect(curated.score.pay, 0);
+    });
+
+    test('ASK AGAIN spends a rising cost and replaces the hand', () {
+      final engine = RunEngine(
+        level: kEndlessShift,
+        seed: 4,
+        startingPay: 12,
+      )..start();
+      playToShop(engine);
+      engine.score.pay = 30;
+      final first = engine.shopOffers.map((c) => c.id).toList();
+      expect(engine.redrawCost, EndlessShop.redrawBase);
+
+      expect(engine.redrawShop(), isTrue);
+      expect(engine.isShopping, isTrue);
+      expect(engine.score.pay, 27);
+      expect(
+          engine.redrawCost, EndlessShop.redrawBase + EndlessShop.redrawBump);
+      expect(engine.shopOffers, hasLength(EndlessShop.offerCount));
+
+      expect(engine.redrawShop(), isTrue);
+      expect(engine.score.pay, 21);
+      expect(engine.redrawCost,
+          EndlessShop.redrawBase + 2 * EndlessShop.redrawBump);
+
+      // Same seed plus the same redraws is a replay, not a slot.
+      final replay = RunEngine(
+        level: kEndlessShift,
+        seed: 4,
+        startingPay: 12,
+      )..start();
+      playToShop(replay);
+      replay.score.pay = 30;
+      expect(replay.shopOffers.map((c) => c.id), first);
+      replay.redrawShop();
+      replay.redrawShop();
+      expect(
+        replay.shopOffers.map((c) => c.id),
+        engine.shopOffers.map((c) => c.id),
+      );
+    });
+
+    test('an unaffordable ASK AGAIN takes no money and keeps the hand', () {
+      final engine = RunEngine(level: kEndlessShift, seed: 4)..start();
+      playToShop(engine);
+      engine.score.pay = 2;
+      final ids = engine.shopOffers.map((c) => c.id).toList();
+      expect(engine.redrawShop(), isFalse);
+      expect(engine.score.pay, 2);
+      expect(engine.shopOffers.map((c) => c.id), ids);
+      expect(engine.isShopping, isTrue);
     });
   });
 }

@@ -12,6 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
   flame: ^1.38.0
+  shared_preferences: ^2.5.3
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -20,4 +22,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # No asset pipeline in v1: shapes, type, and particles are procedural.
+  # SFX are synthesised at runtime. Music is Gemini/Lyria OGG loops dropped
+  # under assets/audio/. Shapes, type, and particles stay procedural.
+  assets:
+    - assets/audio/

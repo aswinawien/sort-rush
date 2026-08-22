@@ -24,9 +24,21 @@ class CardSpec {
   final String body;
   final int cost;
   final TuningDelta delta;
+
+  CardSpec withCost(int cost) => CardSpec(
+        id: id,
+        title: title,
+        chip: chip,
+        body: body,
+        cost: cost,
+        delta: delta,
+      );
 }
 
-/// Endless shop: seeded offers between blinds, within-run pay only.
+/// Endless shop: seeded offers between blinds.
+///
+/// Leftover pay can carry into the next endless run, capped. List prices
+/// rise with the blind index this run, not with a career counter.
 abstract final class EndlessShop {
   /// Pressure at which the belt drains and the board opens. Chosen to sit
   /// *between* chute grows (18, 45) so a shop and a layout change never
@@ -34,6 +46,32 @@ abstract final class EndlessShop {
   static const List<int> blinds = [22, 50, 80];
 
   static const int offerCount = 3;
+
+  /// Added to every slip each time the board opens later in the run.
+  static const int costBumpPerBlind = 3;
+
+  /// First redraw on a board. Each further redraw adds this again.
+  static const int redrawBase = 3;
+  static const int redrawBump = 3;
+
+  /// Leftover pay that may start the next endless run. Not an unlock tree.
+  static const int walletCap = 12;
+
+  static int clampWallet(int pay) {
+    if (pay < 0) {
+      return 0;
+    }
+    if (pay > walletCap) {
+      return walletCap;
+    }
+    return pay;
+  }
+
+  static int slipCost(CardSpec card, int blindIndex) =>
+      card.cost + blindIndex * costBumpPerBlind;
+
+  static int redrawCost(int redrawsUsed) =>
+      redrawBase + redrawsUsed * redrawBump;
 
   /// Short v1 pool: parameter retunes plus one give-and-take. No extra
   /// chute — that would breach the 2–4 endless ceiling. No probability.

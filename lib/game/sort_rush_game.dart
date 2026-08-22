@@ -9,6 +9,9 @@ import 'components/belt_component.dart';
 import 'components/bin_component.dart';
 import 'components/hud_component.dart';
 import 'components/sort_line_component.dart';
+import 'music.dart';
+import 'music_catalog.dart';
+import 'sfx.dart';
 
 /// The active play loop. Flame owns this; everything outside it is Flutter.
 ///
@@ -21,7 +24,11 @@ class SortRushGame extends FlameGame {
     required this.onRunEnded,
     this.onShopOpened,
     this.onReady,
-  });
+    this.startingPay = 0,
+    SfxBus? sfx,
+    MusicBus? music,
+  })  : sfx = sfx ?? const SilentSfx(),
+        music = music ?? const SilentMusic();
 
   /// Vertical layout split from docs/design-spec.md §8. Proportional so the
   /// belt absorbs extra height on tall screens without changing timings.
@@ -35,6 +42,13 @@ class SortRushGame extends FlameGame {
 
   final LevelConfig level;
   final int seed;
+  final int startingPay;
+  final SfxBus sfx;
+
+  /// Atmosphere only. The endless crossfade is driven from [update] rather
+  /// than from Flutter's `build`, because `engine` is late-initialised in the
+  /// async `onLoad` and the first build lands before it exists.
+  final MusicBus music;
   final void Function(RunEngine engine) onRunEnded;
   final void Function()? onShopOpened;
 
@@ -73,12 +87,16 @@ class SortRushGame extends FlameGame {
   /// belt scan lines; timings stay identical.
   bool reduceMotion = false;
 
+  /// Presentation only. Set by [PlayScreen] from the visual-style setting;
+  /// nothing reachable from this flag may change a rule or a timing value.
+  bool neon = false;
+
   @override
   Color backgroundColor() => Tokens.ink;
 
   @override
   Future<void> onLoad() async {
-    engine = RunEngine(level: level, seed: seed);
+    engine = RunEngine(level: level, seed: seed, startingPay: startingPay);
 
     _hud = HudComponent();
     _belt = BeltComponent();
@@ -167,16 +185,27 @@ class SortRushGame extends FlameGame {
     }
     engine.update(dt);
 
-    for (final event in engine.drainEvents()) {
+    if (level.curve != null) {
+      // Throttled inside the bus: setting volume every frame is a platform
+      // channel call per player per frame.
+      music.setEndlessMix(MusicCatalog.endlessMix(engine.pressure));
+    }
+
+    final events = engine.drainEvents();
+    final comboUp = events.whereType<ComboAdvancedEvent>().isNotEmpty;
+    for (final event in events) {
       switch (event) {
         case final PackageSortedEvent e:
           _bins[e.binIndex].flashCorrect();
           _hud.pulseScore();
+          sfx.sorted(tier: e.tier, comboUp: comboUp);
         case final PackageMisroutedEvent e:
           _bins[e.binIndex].flashMisroute();
           _hud.glitch();
+          sfx.misroute();
         case PackageDroppedEvent():
           _hud.glitch();
+          sfx.dropped();
         case PackageMorphedEvent():
           // The corrupted state is drawn from `ActivePackage.isUnstable` by
           // BeltComponent; this punctuates the instant it resolves, so the
@@ -191,7 +220,7 @@ class SortRushGame extends FlameGame {
         case ShopOpenedEvent():
           onShopOpened?.call();
         case RunEndedEvent():
-          break;
+          sfx.ended();
       }
     }
 
