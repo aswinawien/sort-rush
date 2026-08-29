@@ -3,6 +3,7 @@ import 'package:sort_rush/core/package_spec.dart';
 import 'package:sort_rush/core/pass_condition.dart';
 import 'package:sort_rush/core/routing.dart';
 import 'package:sort_rush/core/run_engine.dart';
+import 'package:sort_rush/core/score_state.dart';
 
 const List<PackageShape> allShapes = [
   PackageShape.circle,
@@ -22,14 +23,16 @@ LevelConfig testLevel({
   double chaosRate = 0.0,
   double telegraphSeconds = 0.0,
   RoutingRule? routing,
+  List<PackageShape> shapes = allShapes,
+  int comboCap = RunScore.curatedTierCap,
 }) {
   return LevelConfig(
     id: 99,
     title: 'TEST',
     objective: 'test',
     tutorialCopy: 'test',
-    routing: routing ?? ShapeRouting(allShapes),
-    shapes: allShapes,
+    routing: routing ?? ShapeRouting(shapes),
+    shapes: shapes,
     colors: colors,
     readWindow: readWindow,
     spawnInterval: spawnInterval,
@@ -38,20 +41,30 @@ LevelConfig testLevel({
     passCondition: passCondition,
     chaosRate: chaosRate,
     telegraphSeconds: telegraphSeconds,
+    comboCap: comboCap,
   );
 }
 
 /// Routes the front-most package into its correct bin.
 TapResult sortCorrectly(RunEngine engine) {
   final package = engine.frontMost!;
-  return engine.tapBin(engine.binFor(package.spec));
+  for (var i = 0; i < engine.liveBinCount; i++) {
+    if (engine.isCorrectBin(package.spec, i)) {
+      return engine.tapBin(i);
+    }
+  }
+  return TapResult.ignored;
 }
 
 /// Routes the front-most package into a bin that is definitely wrong.
 TapResult sortWrongly(RunEngine engine) {
   final package = engine.frontMost!;
-  final correct = engine.binFor(package.spec);
-  return engine.tapBin((correct + 1) % engine.liveBinCount);
+  for (var i = 0; i < engine.liveBinCount; i++) {
+    if (!engine.isCorrectBin(package.spec, i)) {
+      return engine.tapBin(i);
+    }
+  }
+  return TapResult.ignored;
 }
 
 /// Walks past a depot board so a long scripted run is not a shop test.

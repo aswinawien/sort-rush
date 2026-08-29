@@ -47,6 +47,23 @@ abstract class RoutingRule {
   RoutedAttribute get reads;
 }
 
+/// Hazardous cargo: the unique destination is forbidden; any other live
+/// chute is valid.
+///
+/// Needs three chutes to express "forbidden in a third". On a smaller
+/// board the unique destination stays the only correct tap. At four
+/// chutes the same function holds — one forbidden, the rest valid.
+/// See docs/decision-log.md, "Hazardous cargo as avoid-the-wrong-chute".
+bool hazardousAccepts(int uniqueBin, int binIndex, int binCount) {
+  if (binIndex < 0 || binIndex >= binCount) {
+    return false;
+  }
+  if (binCount < 3) {
+    return uniqueBin == binIndex;
+  }
+  return uniqueBin != binIndex;
+}
+
 /// Routes on silhouette. Used by levels 1-2, where shape is the only attribute
 /// that matters.
 class ShapeRouting implements RoutingRule {

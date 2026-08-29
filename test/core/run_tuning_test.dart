@@ -48,6 +48,14 @@ void main() {
       expect(tuning.readWindow, RunTuning.readWindowFloor);
     });
 
+    test('no stack of modifiers can breach the swap interval floor', () {
+      final tuning = RunTuning.resolve(
+        level: kEndlessShift,
+        modifiers: const TuningDelta(swapInterval: -99),
+      );
+      expect(tuning.swapInterval, RunTuning.swapIntervalFloor);
+    });
+
     test('no stack of modifiers can breach the spawn interval floor', () {
       final tuning = RunTuning.resolve(
         level: levelById(9),

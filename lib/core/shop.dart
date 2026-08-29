@@ -1,5 +1,12 @@
 import 'tuning_delta.dart';
 
+/// A memo that does more than retune numbers.
+///
+/// Most slips are [CardMechanic.none] plus a [TuningDelta]. Quota, hazardous
+/// cargo and the scanner are named rules that cannot be expressed as a
+/// delta. See docs/decision-log.md, 2026-08-23.
+enum CardMechanic { none, quota, hazardous, scanner }
+
 /// One memo on the depot board.
 ///
 /// Effects are additive [TuningDelta]s. A card whose text would contain a
@@ -13,6 +20,7 @@ class CardSpec {
     required this.body,
     required this.cost,
     required this.delta,
+    this.mechanic = CardMechanic.none,
   });
 
   final String id;
@@ -25,6 +33,10 @@ class CardSpec {
   final int cost;
   final TuningDelta delta;
 
+  /// Named rule this slip arms. [CardMechanic.none] means the delta is
+  /// the whole effect.
+  final CardMechanic mechanic;
+
   CardSpec withCost(int cost) => CardSpec(
         id: id,
         title: title,
@@ -32,6 +44,7 @@ class CardSpec {
         body: body,
         cost: cost,
         delta: delta,
+        mechanic: mechanic,
       );
 }
 
@@ -43,7 +56,13 @@ abstract final class EndlessShop {
   /// Pressure at which the belt drains and the board opens. Chosen to sit
   /// *between* chute grows (18, 45) so a shop and a layout change never
   /// share a moment.
-  static const List<int> blinds = [22, 50, 80];
+  /// Boards now run the length of a real run, not just its opening.
+  ///
+  /// The first three are unchanged. Three more were added because a marathon
+  /// on 2026-08-24 finished at P=488 holding **235 unspent pay** — the last
+  /// board closed at P=80 and income never stopped, so the currency was
+  /// visible, accumulating and inert. These give it somewhere to go.
+  static const List<int> blinds = [22, 50, 80, 120, 170, 230];
 
   static const int offerCount = 3;
 
@@ -53,6 +72,11 @@ abstract final class EndlessShop {
   /// First redraw on a board. Each further redraw adds this again.
   static const int redrawBase = 3;
   static const int redrawBump = 3;
+
+  /// Clean sorts that close a quota contract on the last board, where
+  /// there is no next shop. Same +12 `OVERTIME` already uses as a band
+  /// length. See docs/decision-log.md, "Quota contracts as the in-run wager".
+  static const int quotaLastBandTarget = 12;
 
   /// Leftover pay that may start the next endless run. Not an unlock tree.
   static const int walletCap = 12;
@@ -115,9 +139,12 @@ abstract final class EndlessShop {
       id: 'clean-shift',
       title: 'CLEAN SHIFT',
       chip: 'CLEAN SHIFT',
-      body: 'CHAOS −0.15 · COMBO CAP x4',
+      body: 'CHAOS −0.15 · COMBO CAP −2',
       cost: 6,
-      delta: TuningDelta(chaosRate: -0.15, maxComboTier: -1),
+      // Was -1, which was a 20% haircut against a ceiling of five. Against ten
+      // it would have been 10%, and after the cents change it also cuts income
+      // — a memo that was a real tradeoff would have become a near-free buy.
+      delta: TuningDelta(chaosRate: -0.15, maxComboTier: -2),
     ),
     CardSpec(
       id: 'priority-bonus',
@@ -150,6 +177,33 @@ abstract final class EndlessShop {
       body: 'MAX ACTIVE −1 · SCORE −30%',
       cost: 5,
       delta: TuningDelta(maxActive: -1, scorePercent: -30),
+    ),
+    CardSpec(
+      id: 'quota-contract',
+      title: 'QUOTA CONTRACT',
+      chip: 'QUOTA',
+      body: '2× SEGMENT PAY · MISS FORFEITS IT',
+      cost: 5,
+      delta: TuningDelta.none,
+      mechanic: CardMechanic.quota,
+    ),
+    CardSpec(
+      id: 'hazardous-cargo',
+      title: 'HAZARDOUS CARGO',
+      chip: 'HAZARD',
+      body: 'SCORE +50% · MATCHED CHUTE IS FORBIDDEN',
+      cost: 6,
+      delta: TuningDelta(scorePercent: 50),
+      mechanic: CardMechanic.hazardous,
+    ),
+    CardSpec(
+      id: 'scanner-reveal',
+      title: 'SCANNER',
+      chip: 'SCANNER',
+      body: 'SCORE +50% · LABELS HIDE UNTIL THE LINE',
+      cost: 6,
+      delta: TuningDelta(scorePercent: 50),
+      mechanic: CardMechanic.scanner,
     ),
   ];
 }

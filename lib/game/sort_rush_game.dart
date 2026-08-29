@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/game.dart';
@@ -100,6 +101,42 @@ class SortRushGame extends FlameGame {
   /// nothing reachable from this flag may change a rule or a timing value.
   bool neon = false;
 
+  /// Damage shake: seconds of shake left to play.
+  ///
+  /// Feedback, not decoration — it says "you just lost something", which is
+  /// the test *Play-field effects may carry information* (2026-08-16) sets.
+  /// docs/design-spec.md §5.2 already requires a misroute to answer at two
+  /// sites at once; this is the second site made unmissable.
+  double _shake = 0;
+
+  static const double shakeSeconds = 0.18;
+  static const double shakePixels = 6;
+
+  /// Oscillations per second. Translation, not luminance, so the design
+  /// system's no-rapid-flashing rule is not what bounds this — the 180ms
+  /// duration is.
+  static const double shakeHz = 22;
+
+  /// Whether a damage shake is currently displacing the canvas.
+  bool get isShaking => _shake > 0;
+
+  /// Fires the damage shake, unless something says not to.
+  ///
+  /// Suppressed under reduce-motion, and suppressed when the next package is
+  /// already inside the clutch window: shaking the screen during the last
+  /// 0.5s before the sort line would corrupt the exact read the clutch band
+  /// exists to protect, turning one lost package into two.
+  void _shakeForDamage() {
+    if (reduceMotion) {
+      return;
+    }
+    final remaining = engine.timeToLine;
+    if (remaining != null && remaining <= RunEngine.clutchWindow) {
+      return;
+    }
+    _shake = shakeSeconds;
+  }
+
   @override
   Color backgroundColor() => Tokens.ink;
 
@@ -196,6 +233,12 @@ class SortRushGame extends FlameGame {
       engine.update(dt);
     }
 
+    // Decays even while the shop holds the engine, so a shake cannot be
+    // frozen on screen behind the board and resume after it closes.
+    if (_shake > 0) {
+      _shake = math.max(0, _shake - dt);
+    }
+
     if (level.curve != null) {
       // Throttled inside the bus: setting volume every frame is a platform
       // channel call per player per frame.
@@ -213,9 +256,11 @@ class SortRushGame extends FlameGame {
         case final PackageMisroutedEvent e:
           _bins[e.binIndex].flashMisroute();
           _hud.glitch();
+          _shakeForDamage();
           sfx.misroute();
         case PackageDroppedEvent():
           _hud.glitch();
+          _shakeForDamage();
           sfx.dropped();
         case PackageMorphedEvent():
           // The corrupted state is drawn from `ActivePackage.isUnstable` by
@@ -230,6 +275,8 @@ class SortRushGame extends FlameGame {
           _applyLayout();
         case ShopOpenedEvent():
           onShopOpened?.call();
+        case QuotaSettledEvent():
+          // Wallet already moved in core. The pin chip is the tell.
         case RunEndedEvent():
           sfx.ended();
       }
@@ -239,6 +286,30 @@ class SortRushGame extends FlameGame {
       _endNotified = true;
       onRunEnded(engine);
     }
+  }
+
+  /// Displaces the *canvas*, never the components.
+  ///
+  /// Flame hit-tests against component positions, so nothing here moves a tap
+  /// target. A shake that relocated the chutes would punish the player for
+  /// the mistake it is reporting.
+  @override
+  void render(Canvas canvas) {
+    if (_shake <= 0) {
+      super.render(canvas);
+      return;
+    }
+    final remaining = _shake / shakeSeconds;
+    // Squared, so it dies away rather than stopping dead.
+    final amplitude = shakePixels * remaining * remaining;
+    final phase = (shakeSeconds - _shake) * shakeHz * 2 * math.pi;
+    canvas.save();
+    canvas.translate(
+      math.sin(phase) * amplitude,
+      math.cos(phase * 0.7) * amplitude * 0.5,
+    );
+    super.render(canvas);
+    canvas.restore();
   }
 
   void pauseRun() => engine.pause();

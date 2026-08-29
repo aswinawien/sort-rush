@@ -118,6 +118,12 @@ class AssetMusic implements MusicBus {
   double _mix = 0;
   String? _current;
 
+  /// Each play or stop owns a generation. A stale `stop` from
+  /// `PlayScreen.dispose` must not silence a `playHome` that already started.
+  int _epoch = 0;
+
+  bool _alive(int epoch) => epoch == _epoch;
+
   @override
   set available(Set<String> assets) => _available = assets;
 
@@ -173,8 +179,20 @@ class AssetMusic implements MusicBus {
       _applyVolume();
       return;
     }
-    await _guard(() async => _bPlayer?.stop());
+    final epoch = ++_epoch;
+    await _guard(() async {
+      if (!_alive(epoch)) {
+        return;
+      }
+      await _bPlayer?.stop();
+    });
+    if (!_alive(epoch)) {
+      return;
+    }
     await _guard(() => _loop(_a, asset));
+    if (!_alive(epoch)) {
+      return;
+    }
     // Recorded only once playback was attempted. Setting it first meant a
     // failed decode left `_current` naming a track that was not playing, and
     // the short-circuit above then refused to retry it for the session.
@@ -194,10 +212,17 @@ class AssetMusic implements MusicBus {
     // value meant a second endless run could open with the high-pressure
     // layer at full until the loop's first mix update corrected it.
     _mix = 0;
-    _current = low;
+    final epoch = ++_epoch;
     await _guard(() => _loop(_a, low));
+    if (!_alive(epoch)) {
+      return;
+    }
+    _current = low;
     if (_available.contains(high)) {
       await _guard(() => _loop(_b, high));
+      if (!_alive(epoch)) {
+        return;
+      }
     }
     _applyVolume();
   }
@@ -217,11 +242,20 @@ class AssetMusic implements MusicBus {
 
   @override
   Future<void> stop() async {
+    final epoch = ++_epoch;
     _current = null;
     _endless = false;
     _mix = 0;
-    await _guard(() async => _aPlayer?.stop());
-    await _guard(() async => _bPlayer?.stop());
+    await _guard(() async {
+      if (!_alive(epoch)) {
+        return;
+      }
+      await _aPlayer?.stop();
+      if (!_alive(epoch)) {
+        return;
+      }
+      await _bPlayer?.stop();
+    });
   }
 
   /// A missing or unplayable file must never cost the player a run.

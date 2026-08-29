@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sort_rush/core/levels.dart';
+import 'package:sort_rush/game/music.dart';
+import 'package:sort_rush/game/sfx.dart';
+import 'package:sort_rush/ui/audio_scope.dart';
 import 'package:sort_rush/ui/home_screen.dart';
 import 'package:sort_rush/ui/theme.dart';
 
@@ -70,5 +73,43 @@ void main() {
     // Settings live on their own screen now, not inline on home.
     expect(find.text('VISUAL STYLE'), findsOneWidget);
     expect(find.text('REDUCE MOTION'), findsOneWidget);
+  });
+
+  testWidgets('lobby music resumes when a covering route pops', (tester) async {
+    final music = RecordingMusic();
+    final audio = AudioController(
+      sfx: const SilentSfx(),
+      music: music,
+      tracks: const {'audio/home.ogg'},
+    );
+    final navKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(
+      AudioScope(
+        notifier: audio,
+        child: MaterialApp(
+          navigatorKey: navKey,
+          navigatorObservers: [homeRouteObserver],
+          theme: buildTheme(),
+          home: const HomeScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(music.calls, contains('home'));
+
+    navKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('COVER')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('COVER'), findsOneWidget);
+    music.calls.clear();
+
+    navKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('COVER'), findsNothing);
+    expect(music.calls, contains('home'));
   });
 }

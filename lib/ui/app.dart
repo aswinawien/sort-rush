@@ -51,6 +51,7 @@ class _SortRushAppState extends State<SortRushApp> {
             title: 'Sort Rush',
             debugShowCheckedModeBanner: false,
             theme: buildTheme(),
+            navigatorObservers: [homeRouteObserver],
             home: const HomeScreen(),
           ),
         ),

@@ -1,6 +1,7 @@
 import 'board.dart';
 import 'difficulty.dart';
 import 'level_config.dart';
+import 'score_state.dart';
 import 'pass_condition.dart';
 import 'package_spec.dart';
 import 'routing.dart';
@@ -185,9 +186,8 @@ final List<LevelConfig> kCuratedLevels = [
     spawnInterval: 1.5,
     maxActive: 3,
     mistakeLimit: 3,
-    // 19 rather than the 18 in docs/level-spec.md: at this level's 1.5s spawn
-    // interval, 18 clears in 29.6s, under the spec's own 30-90s band. The
-    // table's "<=1 misroute" half is not implemented — see the decision log.
+    // 19 correct is the L8 contract (decision log 2026-08-23). A "≤1
+    // misroute" cap was considered and rejected — keep a plain SortTarget.
     passCondition: const SortTarget(19),
     chaosRate: 0.25,
     telegraphSeconds: 0.7,
@@ -279,4 +279,6 @@ final LevelConfig kEndlessShift = LevelConfig(
   chaosRate: 0.20,
   telegraphSeconds: 0.8,
   curve: const EndlessCurve(),
+  // Only the night shift runs long enough for fifty consecutive sorts.
+  comboCap: RunScore.maxTier,
 );

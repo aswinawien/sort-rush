@@ -12,7 +12,7 @@ Keep this file current. If you finish a slice, update *Where things stand* befor
 
 **This project is human-gated. Agents propose; they do not decide.**
 
-Standalone `proposed` entries in `docs/decision-log.md` right now: Gate 4 outcome. Residuals still sit inside approved entries — home's one-tap promise at 2× text, and a few clutch-save deviations. Implementing one of those because it looks sensible is the single worst thing you can do here — it converts a pending decision into a fait accompli and the log stops being trustworthy.
+Standalone `proposed` entries in `docs/decision-log.md` right now: **none.** Gate 4 outcome, the visible clutch band, home's 2× residual, clutch-save deviations, and design-spec §12.5 / §12.6 were approved 2026-08-23 — "let's just approve the proposed ones." The clutch-band paint shipped the same day in `lib/game`. Implementing a new idea that is not in the log is still the single worst thing you can do here — write it up as `proposed` and stop.
 
 - Do not implement a `proposed` decision.
 - Do not change a decision's status. Only the human does that.
@@ -118,26 +118,34 @@ tester.widget<GameWidget<SortRushGame>>(
 
 ## Where things stand
 
-*Last updated 2026-08-22, on `feature/immersive-mode`.*
+*Last updated 2026-08-24.*
 
-**Milestone 4 is in progress. Gate 4 is not closed.** Evidence: `docs/milestone-4-gate.md`. Recommendation: hold. Do not start Milestone 5.
+**Milestone 4 is in progress. Gate 4 is held, not closed.** Evidence: `docs/milestone-4-gate.md`. Human ruling 2026-08-23: option (a) HOLD — "let's just approve the proposed ones." Do not start Milestone 5.
 
-**Just shipped:** visual/audio slice is committed on `feature/immersive-mode`. Immersive Neon is a presentation toggle, default off. Shop overlay now holds `engine.update` until the paper retracts (criterion 8). Neon wake clips at 10px so it does not rely on the spawn floor. Active-package trails stay rejected. Endless shop catalog is nine visible-tradeoff memos (stack all three pins; no hidden curses). Lobby music still dies on return-to-Home (QA-R2-01). Music files: 10 of 14 OGGs; `l07`/`l08`/`l10`/`results.ogg` still missing.
+**Just ruled (2026-08-23):** Gate 4 held. Home at 2× accepts scroll-then-tap (do not reorder, do not cap). L8 contract is 19 correct / plain `SortTarget` (no misroute cap). §12.5 Level 1 stays unfailable. §12.6 interim results layout stays; M3-04 folded into a later pass. §12.4 stamped as flat +5.
+
+**Just shipped (2026-08-23):** Visible clutch band — mute/acid wall strip on the sort line, height `beltHeight × (clutchWindow / readWindow)`. `SortLineComponent.warnWindow` equals `RunEngine.clutchWindow` (0.5s). Reduce-motion keeps the colour flip and drops the fill. No new score, no new tap. Helpers in `lib/game/clutch_band.dart`.
+
+**Also shipped (2026-08-23):** Quota contracts, hazardous cargo, and the scanner reveal — human said "let's just approve this too" and "and build them." Three endless shop memos. Quota is the in-run 2× / forfeit wager (last band = 12 clean sorts). Hazardous: matched chute forbidden when `liveBinCount >= 3`. Scanner: labels hidden until progress `0.60`; does not touch `readWindow` or clutch-band geometry. Tap-the-bin stays. Workstation degradation is approved measure-first and **unbuilt**. Unlock-gating endless is still **undecided** and unbuilt.
+
+**Still true:** Night Shift events — one named rule drawn with each memo board from the shop stream, printed in full, applied on pin *or* walk-on, expired at the next shop. Catalog in `lib/core/shift_events.dart`. Lobby music resumes when Home is uncovered (QA-R2-01). Immersive Neon is a presentation toggle, default off. Shop overlay holds `engine.update` until the paper retracts (criterion 8). Neon wake clips at 10px. Active-package trails stay rejected. Endless shop catalog is twelve visible-tradeoff memos (nine retunes plus quota / hazardous / scanner). Music files: 10 of 14 OGGs; `l07`/`l08`/`l10`/`results.ogg` still missing.
+
+**Web QA capture (2026-08-24):** Headless Chrome at 390×844, 2× DPR. Footage in `docs/screenshots/qa-2026-08-24/` — Level 1 release (`induction.webp`) and endless Neon autoplay seed `20260822` (`endless-neon.webp`). No P0/P1. Shop copy matches the depot-memo contract. Autoplay clip ended mid-browse, so WALK ON / results were not on film. This is still not the device test and does not close Gate 4.
 
 **First human play (2026-08-17):** developer, web, verdict "looks good", no P0/P1 named. Questionnaire unanswered. Fairness floors still untimed. This is not the device test and does not close Gate 4.
 
-**Still approved and unbuilt:** the four missing music files (`l07`, `l08`, `l10`, `results.ogg`). Quota contracts, hazardous cargo, and the scanner reveal remain designed-not-built.
+**Still approved and unbuilt:** the four missing music files (`l07`, `l08`, `l10`, `results.ogg`). Workstation degradation is approved as measure-on-a-device-first and stays unbuilt until that evidence exists.
 
-**Bins ceiling** is 3 curated, 2–4 endless. Routing during an endless run must go through `engine.binFor` / `liveBinCount`, never `level.routing.binFor`. Shop RNG is `SeededRng(seed ^ 0x51A70FF)` — never the engine stream.
+**Bins ceiling** is 3 curated, 2–4 endless. Routing during an endless run must go through `engine.binFor` / `liveBinCount`, never `level.routing.binFor`. Shop RNG is `SeededRng(seed ^ 0x51A70FF)` — never the engine stream. Shift events draw from that same shop stream *after* the three slips; `ASK AGAIN` does not redraw the event.
 
-**What closes Milestone 4, in order, if the gate is held:**
+**What still closes Milestone 4, in order:**
 
-1. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors. Music is in; Immersive Neon stays default-off until that session also times it.
+1. A device playtest that fills the questionnaire and times the 1.20s / 0.65s floors. Music is in (partial); Immersive Neon stays default-off until that session also times it.
 2. Drop `l07`/`l08`/`l10`/`results.ogg` when they exist — filenames are already wired.
 
-**Then Milestone 5:** listing basics, Play internal-test track, release evidence. The signed AAB already builds. Do not start M5 before Gate 4 closes.
+**Then Milestone 5:** listing basics, Play internal-test track, release evidence. The signed AAB already builds. Do not start M5 while Gate 4 is held.
 
-**Do not start quota contracts, hazardous cargo, or the scanner unless the human asks.** Do not invent unlock-gating endless. Do not invent a Settings screen for mute — it already lives on Home.
+Do not invent unlock-gating endless. Do not start workstation degradation without device frame-pacing evidence. Do not invent a Settings screen for mute — it already lives on Home.
 
 ---
 
@@ -159,7 +167,7 @@ Every task report must include: current state, goal, evidence, proposed action, 
 | `CLAUDE.md` | The constitution. Mission, non-negotiables, milestones. Read first. |
 | `docs/decision-log.md` | Every decision, its evidence, its gate status. The project's memory. |
 | `docs/milestone-3-gate.md` | Gate 3, closed 2026-08-16: criteria, evidence, defects, and the rulings. |
-| `docs/milestone-4-gate.md` | Gate 4, awaiting ruling: criteria, evidence, gaps, and the options. |
+| `docs/milestone-4-gate.md` | Gate 4, held 2026-08-23: criteria, evidence, gaps, and the ruling. |
 | `docs/product-brief.md` | Pitch, target player, risks, scope ceiling, discarded alternatives. |
 | `docs/design-system.md` | Visual direction, novelty budget, interaction and accessibility rules. |
 | `docs/design-spec.md` | Screen-by-screen spec, Flutter/Flame mapping, open questions in §12. |

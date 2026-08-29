@@ -176,7 +176,12 @@ class _DevCaptureAppState extends State<DevCaptureApp> {
 
     final front = engine.frontMost;
     if (front == null || front.progress < commitAt) return;
-    game.handleBinTap(engine.binFor(front.spec));
+    for (var i = 0; i < engine.liveBinCount; i++) {
+      if (engine.isCorrectBin(front.spec, i)) {
+        game.handleBinTap(i);
+        return;
+      }
+    }
   }
 
   @override

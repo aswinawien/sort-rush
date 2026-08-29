@@ -26,6 +26,7 @@ class TuningDelta {
     this.missScorePenalty = 0,
     this.blindShift = 0,
     this.costBump = 0,
+    this.swapInterval = 0,
   });
 
   /// The identity: what a run carries before anything is bought.
@@ -67,6 +68,11 @@ class TuningDelta {
   /// Extra added to the per-board slip price bump.
   final int costBump;
 
+  /// Seconds added to the endless lane-swap interval. Negative brings the
+  /// next swap sooner. The live value is still floored so a storm cannot
+  /// spam the board.
+  final double swapInterval;
+
   TuningDelta operator +(TuningDelta other) => TuningDelta(
         readWindow: readWindow + other.readWindow,
         spawnInterval: spawnInterval + other.spawnInterval,
@@ -83,6 +89,28 @@ class TuningDelta {
         missScorePenalty: missScorePenalty + other.missScorePenalty,
         blindShift: blindShift + other.blindShift,
         costBump: costBump + other.costBump,
+        swapInterval: swapInterval + other.swapInterval,
+      );
+
+  /// Inverse of this delta. Used to peel a band-limited event off the
+  /// stack without rebuilding from pins.
+  TuningDelta get negated => TuningDelta(
+        readWindow: -readWindow,
+        spawnInterval: -spawnInterval,
+        maxActive: -maxActive,
+        mistakeLimit: -mistakeLimit,
+        chaosRate: -chaosRate,
+        telegraphSeconds: -telegraphSeconds,
+        scorePercent: -scorePercent,
+        payPercent: -payPercent,
+        priorityRate: -priorityRate,
+        priorityScorePercent: -priorityScorePercent,
+        clutchBonus: -clutchBonus,
+        maxComboTier: -maxComboTier,
+        missScorePenalty: -missScorePenalty,
+        blindShift: -blindShift,
+        costBump: -costBump,
+        swapInterval: -swapInterval,
       );
 
   /// Whether this delta would change anything at all.
@@ -101,5 +129,6 @@ class TuningDelta {
       maxComboTier == 0 &&
       missScorePenalty == 0 &&
       blindShift == 0 &&
-      costBump == 0;
+      costBump == 0 &&
+      swapInterval == 0;
 }

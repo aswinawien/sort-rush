@@ -30,21 +30,43 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+/// Lets Home hear when a covering route pops. Play uses `pushReplacement`
+/// onto Results, which completes Home's `push` future early, so awaiting
+/// that future cannot be the resume.
+final RouteObserver<ModalRoute<void>> homeRouteObserver =
+    RouteObserver<ModalRoute<void>>();
+
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
+  bool _watchingRoute = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _resumeLobby();
+    final route = ModalRoute.of(context);
+    if (!_watchingRoute && route is PageRoute) {
+      homeRouteObserver.subscribe(this, route);
+      _watchingRoute = true;
+      _resumeLobby();
+    }
   }
+
+  @override
+  void dispose() {
+    homeRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  /// A run, the floor record, or Options just left. Reclaim the lobby loop.
+  @override
+  void didPopNext() => _resumeLobby();
 
   /// Home owns the lobby loop, and has to reclaim it on the way back in.
   ///
-  /// `didChangeDependencies` does not re-fire when a run pops back to an
-  /// already-mounted Home, and `PlayScreen.dispose` has stopped the music by
-  /// then — so without a route-aware hook the app is silent on Home for the
-  /// rest of the session.
-  /// `RouteAware` would need an app-wide `RouteObserver` to fire at all, so
-  /// the resume rides on the push instead — it lands when the run pops back.
+  /// `didChangeDependencies` does not re-fire when a run pops back, and
+  /// `PlayScreen.dispose` has stopped the music by then. `pushReplacement`
+  /// onto Results also completes the original `push` future early, so the
+  /// resume cannot ride on that await alone. `didPopNext` is the hook that
+  /// actually fires when Home is uncovered.
   void _resumeLobby() {
     if (!mounted) {
       return;
@@ -141,8 +163,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _resumeLobby();
   }
 
-  void _jumpPlay(BuildContext context, DevJump jump) {
-    Navigator.of(context).push(
+  Future<void> _jumpPlay(BuildContext context, DevJump jump) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayScreen(
           level: kEndlessShift,
@@ -151,10 +173,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    _resumeLobby();
   }
 
-  void _jumpResults(BuildContext context, {required bool passed}) {
-    Navigator.of(context).push(
+  Future<void> _jumpResults(BuildContext context,
+      {required bool passed}) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ResultsScreen(
           summary: passed ? _devPassedSummary : _devFailedSummary,
@@ -162,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    _resumeLobby();
   }
 }
 

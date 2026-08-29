@@ -65,6 +65,9 @@ void main() {
       expect(find.text(card.body), findsOneWidget);
       expect(find.text('COST ${card.cost}'), findsAtLeastNWidgets(1));
     }
+    final event = engine.pendingEvent!;
+    expect(find.byKey(const Key('shift-event-line')), findsOneWidget);
+    expect(find.text('${event.title} · ${event.body}'), findsOneWidget);
   });
 
   testWidgets('walk on is always legal', (tester) async {
@@ -82,6 +85,7 @@ void main() {
     expect(closed, isTrue);
     expect(engine.isShopping, isFalse);
     expect(engine.pinned, isEmpty);
+    expect(engine.liveEvent, isNotNull);
   });
 
   testWidgets('an unaffordable slip takes no money', (tester) async {
@@ -118,6 +122,7 @@ void main() {
     expect(engine.isShopping, isFalse);
     expect(engine.score.pay, payBefore - card.cost);
     expect(engine.pinned.single.id, card.id);
+    expect(engine.liveEvent, isNotNull);
   });
 
   testWidgets('ASK AGAIN spends pay and keeps the board open', (tester) async {
@@ -131,6 +136,7 @@ void main() {
     expect(engine.isShopping, isTrue);
     expect(engine.score.pay, 17);
     expect(find.textContaining('COST ${engine.redrawCost}'), findsWidgets);
+    expect(find.byKey(const Key('shift-event-line')), findsOneWidget);
   });
 
   group('the transition wiring', () {

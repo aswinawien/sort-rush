@@ -78,7 +78,14 @@ abstract final class PackagePainter {
     PackageSpec spec, {
     required bool isActive,
     bool isUnstable = false,
+    bool labelVisible = true,
+    bool hazardous = false,
   }) {
+    if (!labelVisible) {
+      _paintHiddenLabel(canvas, rect, isActive: isActive);
+      return;
+    }
+
     final path = shapePath(spec.shape, rect);
 
     // The corrupted state, drawn *behind* the package: a ghost of the label
@@ -117,6 +124,10 @@ abstract final class PackagePainter {
       _paintPriority(canvas, rect);
     }
 
+    if (hazardous) {
+      _paintHazard(canvas, path, rect);
+    }
+
     if (isActive) {
       canvas.drawPath(
         shapePath(spec.shape, rect.inflate(7)),
@@ -126,6 +137,55 @@ abstract final class PackagePainter {
           ..color = Tokens.acid.withValues(alpha: 0.45),
       );
     }
+  }
+
+  /// Mute slab. Identity, stamps, tears and the hazard slash stay off
+  /// until the scanner reveal — leaking any of those would undo the rule.
+  static void _paintHiddenLabel(
+    Canvas canvas,
+    Rect rect, {
+    required bool isActive,
+  }) {
+    final path = shapePath(PackageShape.square, rect);
+    canvas.drawPath(path, Paint()..color = Tokens.mute);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isActive ? 3.5 : 1.5
+        ..color = isActive ? Tokens.acid : Tokens.paper,
+    );
+    if (isActive) {
+      canvas.drawPath(
+        shapePath(PackageShape.square, rect.inflate(7)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = Tokens.acid.withValues(alpha: 0.45),
+      );
+    }
+  }
+
+  /// Warn slash: this identity is the forbidden chute, not the destination.
+  /// Positions are fixed — a jittering mark would be a strobe.
+  static void _paintHazard(Canvas canvas, Path path, Rect rect) {
+    canvas.save();
+    canvas.clipPath(path);
+    final paint = Paint()
+      ..color = Tokens.warn
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawLine(
+      Offset(rect.left + 6, rect.top + 6),
+      Offset(rect.right - 6, rect.bottom - 6),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(rect.right - 6, rect.top + 6),
+      Offset(rect.left + 6, rect.bottom - 6),
+      paint,
+    );
+    canvas.restore();
   }
 
   /// Horizontal tear bands across a corrupting package.

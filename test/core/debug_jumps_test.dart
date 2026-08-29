@@ -12,6 +12,7 @@ void main() {
 
     expect(engine.isShopping, isTrue);
     expect(engine.shopOffers, hasLength(3));
+    expect(engine.pendingEvent, isNotNull);
     expect(engine.active, isEmpty);
     expect(engine.score.pay, 20);
     for (final card in engine.shopOffers) {

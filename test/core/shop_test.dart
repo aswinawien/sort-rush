@@ -124,10 +124,14 @@ void main() {
     });
 
     test('every memo is a visible tradeoff', () {
-      expect(EndlessShop.catalog, hasLength(9));
+      expect(EndlessShop.catalog, hasLength(12));
       for (final card in EndlessShop.catalog) {
         expect(card.body.contains(' · '), isTrue, reason: card.id);
-        expect(card.delta.isEmpty, isFalse, reason: card.id);
+        expect(
+          !card.delta.isEmpty || card.mechanic != CardMechanic.none,
+          isTrue,
+          reason: card.id,
+        );
       }
     });
 
@@ -138,6 +142,10 @@ void main() {
       expect(bumped.body, card.body);
       expect(identical(bumped.delta, card.delta), isTrue);
       expect(bumped.id, card.id);
+      expect(bumped.mechanic, card.mechanic);
+      final quota = EndlessShop.byId('quota-contract').withCost(9);
+      expect(quota.mechanic, CardMechanic.quota);
+      expect(quota.delta.isEmpty, isTrue);
     });
 
     test('a pin is remembered for the rest of the run', () {
@@ -309,18 +317,26 @@ void main() {
       expect(engine.score.score, 22);
     });
 
-    test('Clean Shift never awards x5', () {
+    test('Clean Shift takes two tiers off the ceiling it is sold under', () {
+      // Measured against the endless ceiling, because that is the only place
+      // this memo can be bought. Its delta went from -1 to -2 when the ceiling
+      // went from five to ten, so the haircut stays a fifth of the ceiling
+      // rather than becoming a near-free buy.
       final engine = RunEngine(
-        level: testLevel(spawnInterval: 0.65, mistakeLimit: 5),
+        level: testLevel(
+          spawnInterval: 0.65,
+          mistakeLimit: 5,
+          comboCap: RunScore.maxTier,
+        ),
         seed: 1,
       )..start();
       engine.applyModifier(EndlessShop.byId('clean-shift').delta);
-      for (var i = 0; i < 25; i++) {
+      for (var i = 0; i < 60; i++) {
         sortCorrectly(engine);
         spawnNext(engine);
       }
-      expect(engine.score.comboTier, 4);
-      expect(engine.score.comboTier, lessThan(RunScore.maxTier));
+      expect(engine.score.comboTier, RunScore.maxTier - 2);
+      expect(engine.score.isMaxxxx, isFalse);
     });
 
     test('Quiet Machine drops how many packages can sit on the belt', () {

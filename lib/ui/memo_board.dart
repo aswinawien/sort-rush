@@ -125,6 +125,14 @@ class _MemoBoardState extends State<MemoBoard> {
                       'PIN ONE. OR WALK ON.',
                       reduce: reduce,
                     ),
+                    if (engine.pendingEvent case final event?) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${event.title} · ${event.body}',
+                        key: const Key('shift-event-line'),
+                        style: Tokens.label.copyWith(color: Tokens.paper),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Expanded(
                       child: ListView(
