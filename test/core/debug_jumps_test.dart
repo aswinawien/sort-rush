@@ -12,6 +12,7 @@ void main() {
 
     expect(engine.isShopping, isTrue);
     expect(engine.shopOffers, hasLength(3));
+    expect(engine.pendingEvent, isNotNull);
     expect(engine.active, isEmpty);
     expect(engine.score.pay, 20);
     for (final card in engine.shopOffers) {
@@ -33,10 +34,10 @@ void main() {
   test('debugForceRoll uses the supplied pins when given', () {
     final engine = RunEngine(level: kEndlessShift, seed: 7);
     engine.debugForceRoll(
-      pinned: [EndlessShop.catalog[4]],
+      pinned: [EndlessShop.byId('long-warn')],
     );
 
-    expect(engine.pinned.single.id, EndlessShop.catalog[4].id);
+    expect(engine.pinned.single.id, 'long-warn');
     expect(engine.score.comboTier, 5);
   });
 

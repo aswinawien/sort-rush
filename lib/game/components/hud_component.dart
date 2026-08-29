@@ -2,7 +2,6 @@ import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
 import '../../core/machine_intensity.dart';
-import '../../core/shop.dart';
 import '../../ui/theme.dart';
 import '../sort_rush_game.dart';
 import '../text_util.dart';
@@ -139,7 +138,11 @@ class HudComponent extends PositionComponent
       color: score.comboTier > 1 ? Tokens.acid : Tokens.mute,
       fontSize: 13 + _comboPulse * 3,
     );
-    final comboLabel = 'COMBO x${score.comboTier}';
+    // At the ceiling the tier stops being a number. `MAXXXX` is the whole
+    // reward for fifty consecutive clean sorts — the payout is flat up here
+    // (`RunScore.centsPerTier`), so this is what the streak buys.
+    final comboLabel =
+        score.isMaxxxx ? 'MAXXXX' : 'COMBO x${score.comboTier}';
     final comboOrigin = Offset(18, 12 + scoreText.height);
     if (split > 0) {
       _comboCyan
@@ -162,7 +165,7 @@ class HudComponent extends PositionComponent
       final barY = 12 + scoreText.height + combo.height + 8;
       _renderPressure(canvas, 18, barY);
       _renderPay(canvas, 18, barY + 10, engine.score.pay);
-      _renderPins(canvas, 18, barY + 26, engine.pinned);
+      _renderPins(canvas, 18, barY + 26);
     }
 
     _renderMistakes(canvas, score.mistakes);
@@ -194,17 +197,17 @@ class HudComponent extends PositionComponent
     payText.paint(canvas, Offset(x, y));
   }
 
-  void _renderPins(
-    Canvas canvas,
-    double x,
-    double y,
-    List<CardSpec> pinned,
-  ) {
-    if (pinned.isEmpty) {
+  void _renderPins(Canvas canvas, double x, double y) {
+    final event = game.engine.liveEvent;
+    final pinned = game.engine.pinned;
+    if (event == null && pinned.isEmpty) {
       return;
     }
-    final overflow = pinned.length > 3;
-    final shown = overflow ? pinned.take(2) : pinned.take(3);
+    final memoSlots = event == null ? 3 : 2;
+    final overflow = pinned.length > memoSlots;
+    final shown = overflow
+        ? pinned.take(memoSlots > 1 ? memoSlots - 1 : 0)
+        : pinned.take(memoSlots);
     var cursor = x;
     const gap = 6.0;
     const pad = 5.0;
@@ -213,23 +216,59 @@ class HudComponent extends PositionComponent
       fontSize: 10,
       letterSpacing: 1,
     );
-    for (final card in shown) {
-      final label = _chipText.layout(card.chip, chipStyle);
-      final width = label.width + pad * 2;
-      final height = label.height + pad;
-      canvas.drawRect(
-        Rect.fromLTWH(cursor, y, width, height),
-        _pipPaint
-          ..style = PaintingStyle.fill
-          ..color = Tokens.paper,
+    if (event != null) {
+      cursor = _paintChip(
+        canvas,
+        cursor,
+        y,
+        event.chip,
+        chipStyle,
+        pad,
+        acidBorder: true,
       );
-      label.paint(canvas, Offset(cursor + pad, y + pad / 2));
-      cursor += width + gap;
+      cursor += gap;
+    }
+    for (final card in shown) {
+      cursor = _paintChip(canvas, cursor, y, card.chip, chipStyle, pad);
+      cursor += gap;
     }
     if (overflow) {
-      final more = _chipText.layout('·${pinned.length - 2}', chipStyle);
+      final hidden = pinned.length - shown.length;
+      final more = _chipText.layout('·$hidden', chipStyle);
       more.paint(canvas, Offset(cursor, y + pad / 2));
     }
+  }
+
+  double _paintChip(
+    Canvas canvas,
+    double x,
+    double y,
+    String chip,
+    TextStyle chipStyle,
+    double pad, {
+    bool acidBorder = false,
+  }) {
+    final label = _chipText.layout(chip, chipStyle);
+    final width = label.width + pad * 2;
+    final height = label.height + pad;
+    final rect = Rect.fromLTWH(x, y, width, height);
+    canvas.drawRect(
+      rect,
+      _pipPaint
+        ..style = PaintingStyle.fill
+        ..color = Tokens.paper,
+    );
+    if (acidBorder) {
+      canvas.drawRect(
+        rect,
+        _pipPaint
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = Tokens.acid,
+      );
+    }
+    label.paint(canvas, Offset(x + pad, y + pad / 2));
+    return x + width;
   }
 
   void _renderMistakes(Canvas canvas, int mistakes) {

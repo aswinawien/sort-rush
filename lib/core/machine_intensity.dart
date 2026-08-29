@@ -1,3 +1,5 @@
+import 'score_state.dart';
+
 /// Stepped "on a roll" treatment for the belt wall and the combo line.
 ///
 /// Tied to numbers the player can already see — pressure fill and combo
@@ -5,12 +7,19 @@
 /// Per-frame jitter is forbidden: it flashes and it costs frames.
 /// See docs/design-spec.md §5.2.
 abstract final class MachineIntensity {
-  static const List<double> comboSteps = [0, 0.25, 0.40, 0.55, 0.70];
+  /// x1–x5 are byte-identical to the values approved on 2026-08-17. The
+  /// x6–x10 range is new and lands on a full wall at MAXXXX. Extending rather
+  /// than re-spacing keeps every curated shift — which caps at x5 — looking
+  /// exactly as it did.
+  static const List<double> comboSteps = [
+    0, 0.25, 0.40, 0.55, 0.70, // x1–x5, unchanged
+    0.78, 0.85, 0.91, 0.96, 1.0, // x6–x10
+  ];
 
   static const double scanlineCap = 0.12;
 
   static double comboStepFor(int tier) {
-    final index = tier.clamp(1, 5) - 1;
+    final index = tier.clamp(1, comboSteps.length) - 1;
     return comboSteps[index];
   }
 
@@ -30,6 +39,12 @@ abstract final class MachineIntensity {
     }
     if (tier <= 3) {
       return 2;
+    }
+    // MAXXXX prints wider than any numbered tier. Still held, still printed
+    // once per tier — a per-frame jitter here is the CRT-screensaver failure
+    // the 2026-08-17 ruling rejected, and it is still rejected.
+    if (tier >= RunScore.maxxxxTier) {
+      return 4;
     }
     return 3;
   }

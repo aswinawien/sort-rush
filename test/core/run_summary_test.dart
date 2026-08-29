@@ -4,7 +4,8 @@ import 'package:sort_rush/core/run_engine.dart';
 import 'package:sort_rush/core/run_summary.dart';
 
 void main() {
-  RunSummary endless({required int sorted, int misrouted = 0, int dropped = 0}) =>
+  RunSummary endless(
+          {required int sorted, int misrouted = 0, int dropped = 0}) =>
       RunSummary(
         levelId: 0,
         outcome: RunOutcome.failed,

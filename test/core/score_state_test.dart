@@ -17,9 +17,21 @@ void main() {
       expect(RunScore.tierFor(20), 5);
     });
 
-    test('caps at tier 5', () {
-      expect(RunScore.tierFor(100), 5);
-      expect(RunScore.tierFor(1000), 5);
+    test('caps at the absolute ceiling', () {
+      // The ceiling is x10 now, and only the endless shift opts into it —
+      // `LevelConfig.comboCap` keeps curated shifts at x5.
+      expect(RunScore.tierFor(100), RunScore.maxTier);
+      expect(RunScore.tierFor(1000), RunScore.maxTier);
+    });
+
+    test('a curated cap still stops at x5', () {
+      expect(RunScore.tierFor(100, cap: RunScore.curatedTierCap), 5);
+      expect(RunScore.tierFor(1000, cap: RunScore.curatedTierCap), 5);
+    });
+
+    test('a lowered cap never awards x5', () {
+      expect(RunScore.tierFor(20, cap: 4), 4);
+      expect(RunScore.tierFor(100, cap: 4), 4);
     });
   });
 
@@ -29,7 +41,9 @@ void main() {
       expect(score.registerCorrect(), 10);
       expect(score.score, 10);
       expect(score.sorted, 1);
-      expect(score.pay, 1);
+      // Pay is earned in cents now (`RunScore.centsPerTier`). One sort at x1
+      // is six of them, so it buys nothing yet — see pay_economy_test.dart.
+      expect(score.pay, 0);
     });
 
     test('the sort that completes a tier pays the higher rate', () {
@@ -83,6 +97,37 @@ void main() {
       score.registerDrop();
       score.registerMisroute();
       expect(score.mistakes, 3);
+    });
+
+    test('a clutch bonus is applied before the score percent', () {
+      final score = RunScore();
+      expect(
+        score.registerCorrect(
+          clutch: true,
+          clutchBonus: 20,
+          scorePercent: 75,
+        ),
+        22,
+      );
+    });
+
+    test('a miss can deduct a current-tier sort', () {
+      final score = RunScore();
+      for (var i = 0; i < 5; i++) {
+        score.registerCorrect();
+      }
+      expect(score.comboTier, 2);
+      expect(score.score, 60);
+      score.registerMisroute(scorePenalty: 20);
+      expect(score.score, 40);
+      expect(score.comboTier, 1);
+    });
+
+    test('a miss penalty cannot drop the score below zero', () {
+      final score = RunScore();
+      score.registerCorrect();
+      score.registerMisroute(scorePenalty: 999);
+      expect(score.score, 0);
     });
   });
 }

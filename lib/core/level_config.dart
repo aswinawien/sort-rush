@@ -2,6 +2,7 @@ import 'difficulty.dart';
 import 'package_spec.dart';
 import 'pass_condition.dart';
 import 'routing.dart';
+import 'score_state.dart';
 
 /// A fully data-driven level definition.
 ///
@@ -26,6 +27,7 @@ class LevelConfig {
     this.priorityRate = 0.0,
     this.spawnPool,
     this.curve,
+    this.comboCap = RunScore.curatedTierCap,
   })  : assert(chaosRate >= 0 && chaosRate <= 1, 'chaosRate is a probability'),
         assert(
           priorityRate >= 0 && priorityRate <= 1,
@@ -61,6 +63,13 @@ class LevelConfig {
   /// Every curated level is fixed: a lesson you can feel changing underneath
   /// you is not a lesson. Only endless carries a curve.
   final DifficultyCurve? curve;
+
+  /// Combo ceiling for this shift.
+  ///
+  /// Curated shifts keep `RunScore.curatedTierCap`: their sort targets are in
+  /// the twenties, so a fifty-sort tier could never be reached and advertising
+  /// it would be dishonest. Endless opts up to `RunScore.maxTier`.
+  final int comboCap;
 
   /// Exact packages this level may spawn, overriding the cross product of
   /// [shapes] and [colors].

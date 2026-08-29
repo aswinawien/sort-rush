@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sort_rush/core/levels.dart';
 import 'package:sort_rush/core/run_engine.dart';
+import 'package:sort_rush/game/sfx.dart';
 import 'package:sort_rush/game/sort_rush_game.dart';
 
 /// Boots the real Flame surface.
@@ -11,11 +12,16 @@ import 'package:sort_rush/game/sort_rush_game.dart';
 /// keeping it engine-free — but that leaves onLoad, layout, and the tap
 /// pipeline never actually executed. These tests run them.
 void main() {
-  Future<SortRushGame> boot(WidgetTester tester, {int levelId = 1}) async {
+  Future<SortRushGame> boot(
+    WidgetTester tester, {
+    int levelId = 1,
+    SfxBus sfx = const SilentSfx(),
+  }) async {
     final game = SortRushGame(
       level: levelById(levelId),
       seed: 1,
       onRunEnded: (_) {},
+      sfx: sfx,
     );
     await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
     // onLoad is async; give it frames to settle before asserting.
@@ -60,6 +66,20 @@ void main() {
 
     expect(game.engine.score.sorted, 1);
     expect(game.engine.score.score, 10);
+  });
+
+  testWidgets('a correct sort fires a tick on the sfx bus', (tester) async {
+    final bus = _LogSfx();
+    await boot(tester, sfx: bus);
+    final size = tester.view.physicalSize / tester.view.devicePixelRatio;
+    final binBandTop =
+        size.height * (SortRushGame.statusFraction + SortRushGame.beltFraction);
+    await tester.tapAt(
+      Offset(size.width / 2, binBandTop + size.height * 0.1),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(bus.log, contains('sorted:1'));
   });
 
   testWidgets('level 3 lays out one bin per routing destination',
@@ -125,4 +145,21 @@ void main() {
       expect(game.engine.active, hasLength(1));
     });
   });
+}
+
+class _LogSfx implements SfxBus {
+  final List<String> log = [];
+
+  @override
+  void sorted({required int tier, required bool comboUp}) =>
+      log.add(comboUp ? 'combo:$tier' : 'sorted:$tier');
+
+  @override
+  void misroute() => log.add('misroute');
+
+  @override
+  void dropped() => log.add('dropped');
+
+  @override
+  void ended() => log.add('ended');
 }

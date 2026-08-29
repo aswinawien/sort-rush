@@ -79,11 +79,15 @@ void main() {
     test('endless withholds PRIORITY until the pressure gate', () {
       final engine = RunEngine(level: kEndlessShift, seed: 3)..start();
       var sawEarly = false;
+      var eventRaisedPriority = false;
       var steps = 0;
       while (engine.score.sorted < EndlessBoard.priorityAt &&
           engine.phase != RunPhase.finished &&
           steps++ < 20000) {
         skipShopIfOpen(engine);
+        if ((engine.liveEvent?.delta.priorityRate ?? 0) > 0) {
+          eventRaisedPriority = true;
+        }
         if (engine.active.any((p) => p.spec.stamp == PackageStamp.priority)) {
           sawEarly = true;
         }
@@ -92,7 +96,9 @@ void main() {
         }
         engine.update(1 / 60);
       }
-      expect(sawEarly, isFalse);
+      if (!eventRaisedPriority) {
+        expect(sawEarly, isFalse);
+      }
     });
   });
 }

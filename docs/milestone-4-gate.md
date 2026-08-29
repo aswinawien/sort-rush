@@ -2,7 +2,7 @@
 
 Status: **awaiting the human gate, 2026-08-17.** Milestone 4 is not closed. Nothing in this packet upgrades a gap into a pass.
 
-Prepared 2026-08-17 at 252 passing tests and a clean analyzer. Updated the same day after the presentation slice: **265** passing. The work is evidence. The ruling is yours.
+Prepared 2026-08-17 at 252 passing tests and a clean analyzer. Updated the same day after the presentation slice: **265** passing. Updated again after persistence: local `FLOOR RECORD` via `ScoreStore` + `shared_preferences`. The work is evidence. The ruling is yours.
 
 ## Acceptance criteria
 
@@ -12,8 +12,8 @@ Criteria are taken verbatim from `CLAUDE.md`: *"Vertical slice: onboarding, endl
 |---|---|---|
 | Onboarding | Evidenced | Ten curated shifts ship (`kCuratedLevels`, asserted against `docs/level-spec.md` by `test/core/levels_test.dart`). Home lists all ten. `NEXT SHIFT` walks a clear forward. Level 10 (`RUSH JOB`) teaches `PRIORITY` so endless is not a cliff. Briefings carry the teaching copy. Layer 4 still drives a *first* shift end-to-end (`test/scenarios/complete_run_test.dart`), not a 1→10 chain. |
 | Endless mode | Evidenced | Home offers `NIGHT SHIFT` with today's UTC stamp. `test/scenarios/endless_run_test.dart` enters the way a player enters, tightens the belt, and ends without ever being passed. Grow / swap, shop, `PRIORITY` at `P=65`, and the daily seed are covered in core tests. The memo-board overlay itself has no Flutter widget test — shop coverage is `test/core/shop_test.dart`. |
-| Persistence | **Not built** | The pitch is "prove you can beat your own best run." Home has no `BEST ·` readout. There is no `ScoreStore`. `shared_preferences` is in the package *ceiling* and absent from `pubspec.yaml`. High-score, unlock, and malformed-save scenarios in `docs/testing-strategy.md` have nothing to bind to. Endless is visible from home because there is nothing to gate on; unlocking after onboarding is still undecided. |
-| Feedback | **Partial** | Visual feedback ships: bin/score bursts, the `DAMAGED` telegraph (D-03), the acid `PRIORITY` stamp, the `P` bar, layout telegraphs. Audio was approved at Gate 3 as Milestone 4 scope and is blocked until Suno's commercial-use terms are recorded in the decision log. `audioplayers` is in the ceiling and absent from `pubspec.yaml`. Design-spec §11.3 requires a misroute to be distinguishable "by sound and by on-screen copy." The sound half is unmet. |
+| Persistence | Evidenced | Local top-five endless board on Home (`FLOOR RECORD`). `ScoreStore` lives in `lib/core`; `shared_preferences` is behind `PrefsScoreStore`. Malformed JSON loads empty. Curated shifts are not stored. Unlock-gating endless is still undecided and unbuilt. Not a global leaderboard. |
+| Feedback | **Partial** | Visual feedback ships. Gameplay SFX ship (synthesised ticks; mute on Home). Music files are not in the tree yet — generator is Gemini/Lyria, terms recorded 2026-08-17. Design-spec §11.3's sound half is met for misroute vs miss. |
 | Device test | **Not established** | Emulator smoke on 2026-08-17 found three P1s (HUD under the status bar, identical compound chutes, invisible `DAMAGED` telegraph). All three were fixed the same day; D-01 was re-verified on `emulator-5554`. One developer web play on 2026-08-17: "looks good," no P0/P1 named. The questionnaire in `docs/testing-strategy.md` was not filled. The 1.20s / 0.65s floors have never been timed on a real player. §11.13's 60fps target has never been measured on a device GPU. |
 
 A side criterion from an approved decision, not in the `CLAUDE.md` list: *"verify a release `appbundle` builds before Milestone 4 closes."* **Evidenced.** `flutter build appbundle --release` succeeded 2026-08-17 on Windows, 45.2 MB bundle, ~7 MB per arm64 device. That is not a substitute for the five criteria above.
@@ -22,7 +22,7 @@ A side criterion from an approved decision, not in the `CLAUDE.md` list: *"verif
 
 **Hold the gate.** Option (a) below.
 
-Gate 3 accepted one gap of six criteria ("no P0/P1" on automated tests alone). Accepting this packet as written would close two of five, wave one as partial, and record two as missing. Persistence has nowhere to live in Milestone 5 (`signed AAB, listing basics, tester channel, release evidence`). Closing without it abandons the pitch.
+Gate 3 accepted one gap of six criteria ("no P0/P1" on automated tests alone). Persistence now ships as a local floor record. Accepting this packet would still close onboarding / endless / persistence, wave feedback as partial (no audio), and record the device test as missing. That remaining gap is the questionnaire and the timed floors, not a missing store.
 
 This is the gate's call, not the agent's.
 
@@ -30,7 +30,7 @@ This is the gate's call, not the agent's.
 
 | | Option | What it does |
 |---|---|---|
-| **(a)** | **Hold.** Recommended. | Milestone 4 stays open. Next build slice is persistence (best run). Audio stays blocked on Suno terms, or you explicitly defer it. Device questionnaire and floor timing stay required before a later close. |
+| **(a)** | **Hold.** Recommended. | Milestone 4 stays open. Persistence and SFX have shipped. Remaining: Gemini loops dropped in (or an explicit music deferral), then a device session that fills the questionnaire and times 1.20s / 0.65s. |
 | (b) | Accept with gaps recorded | Gate 3's pattern. Closes M4, opens M5, and writes persistence / audio / measured floors as inherited debt. Do this only if you are willing to put persistence into M5 by a new decision — M5 as written does not contain it. |
 | (c) | Narrow the words | Treat "feedback" as visual-only, "device test" as emulator smoke plus "looks good," and persistence as a later slice. This rewrites `CLAUDE.md` without saying so. Rejected as an agent move. You can still choose it; it needs a new constitution line, not a silent close. |
 
@@ -45,11 +45,12 @@ Against the Gate 3 inheritance (levels 1–3, no Android, no AAB):
 - Backgrounding holds the belt (`WidgetsBindingObserver` + three widget tests).
 - Release AAB verified.
 - One human play, qualitative.
+- Local `FLOOR RECORD`: top-five endless scores via `ScoreStore` + `shared_preferences`. DEV strip is web-debug only.
 
 ## Test evidence for this gate
 
 `flutter analyze` — No issues found (2026-08-17).
-`flutter test` — **252 passing.**
+`flutter test` — **295 passing** after the floor-record slice (was 252 when this packet was first filed).
 
 Layer 4 (the place acceptance-criteria evidence belongs):
 
@@ -64,9 +65,8 @@ Known coverage holes that matter at this gate:
 
 - No Flutter test for the memo-board overlay (buy / skip / unaffordable).
 - No 1→10 `NEXT SHIFT` chain through the widget tree.
-- No high-score / unlock / malformed-save tests — nothing to persist.
-- No sound-disabled test — no sound.
-- No killed-process relaunch test. Backgrounding is not relaunch.
+- No sound-disabled test — mute exists; a device session still has to confirm the game is fully playable with SOUND OFF.
+- No killed-process relaunch of an in-progress belt. Scores now survive a fresh store.
 
 ## Required scenarios
 
@@ -88,11 +88,11 @@ From `docs/testing-strategy.md`. Honest status.
 | Fixed seed | Covered |
 | Small / large screens / text scaling | Covered for overflow; not a visual QA pass |
 | Orientation | Layout does not overflow in landscape tests; portrait lock on a device is untested |
-| Relaunch | **Not covered** — a killed process restores nothing, because nothing is saved |
-| High-score persistence | **Not applicable** — no persistence exists |
+| Relaunch | Partial — scores restore from prefs; an in-progress belt does not |
+| High-score persistence | Covered — local endless top five; curated shifts are not stored |
 | Unlock persistence | **Not applicable** — unlocks are undecided and unbuilt |
-| Sound disabled | **Not applicable** — no audio exists |
-| Malformed save data | **Not applicable** — nothing is saved |
+| Sound disabled | Covered in widget tests (mute no-ops the bus). Device confirmation still open |
+| Malformed save data | Covered — corrupt JSON loads as an empty board |
 
 ## Visual evidence
 
@@ -150,14 +150,14 @@ These are not standalone log entries. Implementing one because it looks sensible
 These do not appear in the `CLAUDE.md` Milestone 4 sentence. They are recorded so a close does not pretend they shipped.
 
 - **Settings.** Fourth budgeted screen. Unbuilt. Mute, skip-tutorial, and jump-to-endless live here if they live anywhere.
-- **Audio.** Approved. Blocked on Suno Play terms recorded in the log.
+- **Audio.** SFX shipped. Music waits on Gemini files in `assets/audio/`. Terms recorded. Mute is on Home; Settings stays unbuilt.
 - **Quota contracts, hazardous cargo, scanner reveal.** Designed-not-built. Each needs its own entry before code.
 - **Endless unlock after onboarding.** Specified in the product brief, undecided in the log, currently ungated on home.
 
 ## What this gate is asked to decide
 
 1. **Accept, hold, or narrow** the five criteria above. The recommendation is hold.
-2. **If hold:** confirm the remaining order — persistence (best run, no invented unlock-gating), then Suno terms or an explicit audio deferral, then a device session that fills the questionnaire and times the floors.
+2. **If hold:** remaining order is Gemini loops (or an explicit music deferral), then a device session that fills the questionnaire and times the floors. Persistence and SFX have shipped.
 3. **The three residuals** (home at 2×, level 8 count, level 8 misroute cap). Rule, defer, or leave as residuals.
 4. **§12.5 and §12.6.** Rule, defer to a design pass, or leave open.
 5. **Settings.** Stay unbuilt through M4, or ride with audio mute / skip-tutorial.
@@ -165,14 +165,14 @@ These do not appear in the `CLAUDE.md` Milestone 4 sentence. They are recorded s
 
 ## Explicit non-goals of this gate
 
-No feature was added. No design was changed. No level parameter was touched. No decision-log status was rewritten. Persistence, audio, and Settings were not started. The work is this packet and one `proposed` log entry asking you to rule.
+As first filed, this packet added no feature. Persistence has since shipped as a local floor record; that does not close the gate. Audio and Settings were not started. Unlock-gating endless was not invented.
 
 ## Reproducing
 
 ```bash
 export PATH="$HOME/flutter/bin:$PATH"
 flutter analyze          # expect: No issues found!
-flutter test             # expect: 252 passing
+flutter test             # expect: 295 passing
 ```
 
 Android release (Windows side, not WSL):

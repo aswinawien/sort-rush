@@ -8,6 +8,21 @@ abstract class DifficultyCurve {
 
   double readWindowAt(int pressure);
   double spawnIntervalAt(int pressure);
+
+  /// Extra chaos added at this pressure. Zero for a curve with no third phase.
+  ///
+  /// Separate from timing on purpose: the read window and the spawn interval
+  /// are the fairness contract in `docs/product-brief.md` and both sit on
+  /// their floors by P=130, so anything escalating past that point has to be
+  /// something other than time.
+  double chaosBonusAt(int pressure) => 0;
+
+  /// How many packages arrive together at this pressure. One means no burst.
+  ///
+  /// Density is `readWindow / spawnInterval`, and both are pinned to their
+  /// fairness floors by the time this matters — so the only way left to crowd
+  /// the belt is to change the *shape* of arrivals rather than their rate.
+  int burstSizeAt(int pressure) => 1;
 }
 
 /// The endless curve.
@@ -50,8 +65,44 @@ class EndlessCurve extends DifficultyCurve {
   /// Where the spawn gap bottoms out and the read window starts to give.
   static const int phaseOneEnd = 38;
 
-  /// Where the read window reaches its floor and the curve stops moving.
+  /// Where the read window reaches its floor.
   static const int phaseTwoEnd = 130;
+
+  /// Phase three: what escalates once time cannot.
+  ///
+  /// Measured on 2026-08-24: a perfect run reached **P=488 with zero
+  /// mistakes**, because both timing levers bottom out at [phaseTwoEnd] and
+  /// nothing replaced them. The run had no terminal condition at all.
+  ///
+  /// Chaos is the lever, because the alternative — lowering the floors — is
+  /// forbidden without device evidence that does not exist yet. It ramps from
+  /// [phaseTwoEnd] and is clamped to 1.0 by `RunTuning`, which it reaches
+  /// around P=380: every package corrupting, which is a real end state rather
+  /// than another plateau.
+  static const double phaseThreeChaosPerPressure = 0.004;
+
+  /// Where packages start arriving in clusters rather than singly.
+  ///
+  /// **Average spacing is unchanged.** A group of `n` is followed by a longer
+  /// recovery gap, so the belt still receives one package per
+  /// `spawnInterval` on average — what changes is that they arrive lumpy
+  /// instead of metronomic. Density spikes inside a cluster and the player
+  /// gets breathing room after it.
+  ///
+  /// **This is still a real reduction in local reading time** — see
+  /// [burstGapFraction] — and it presses on what the fairness floor exists to
+  /// protect. It wants the device session in `docs/playtest-2026-08-24.md`
+  /// before the thresholds below are treated as settled.
+  static const int burstTwoAt = 170;
+  static const int burstThreeAt = 300;
+
+  /// Spacing inside a cluster, as a fraction of the spawn interval.
+  ///
+  /// At the 0.65s floor this is ~0.33s between cluster members. The floor
+  /// itself is untouched — the *average* gap is still `spawnInterval` — but a
+  /// player inside a cluster genuinely has half the usual time to read the
+  /// next package. That is the trade being made, stated plainly.
+  static const double burstGapFraction = 0.5;
 
   @override
   double spawnIntervalAt(int pressure) {
@@ -61,6 +112,25 @@ class EndlessCurve extends DifficultyCurve {
     final t = pressure / phaseOneEnd;
     return openingSpawnInterval -
         (openingSpawnInterval - spawnIntervalFloor) * t;
+  }
+
+  @override
+  int burstSizeAt(int pressure) {
+    if (pressure >= burstThreeAt) {
+      return 3;
+    }
+    if (pressure >= burstTwoAt) {
+      return 2;
+    }
+    return 1;
+  }
+
+  @override
+  double chaosBonusAt(int pressure) {
+    if (pressure <= phaseTwoEnd) {
+      return 0;
+    }
+    return (pressure - phaseTwoEnd) * phaseThreeChaosPerPressure;
   }
 
   @override

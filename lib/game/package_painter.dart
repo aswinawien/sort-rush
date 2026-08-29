@@ -78,18 +78,31 @@ abstract final class PackagePainter {
     PackageSpec spec, {
     required bool isActive,
     bool isUnstable = false,
+    bool labelVisible = true,
+    bool hazardous = false,
   }) {
+    if (!labelVisible) {
+      _paintHiddenLabel(canvas, rect, isActive: isActive);
+      return;
+    }
+
     final path = shapePath(spec.shape, rect);
 
-    // The corrupted state, drawn *behind* the package: a warning-coloured
-    // ghost offset like a mistracked print head. This is the whole `DAMAGED`
+    // The corrupted state, drawn *behind* the package: a ghost of the label
+    // in its own hue, offset like a mistracked print head.
+    //
+    // Deliberately not `warn`. That token means "you lost something" — it is
+    // the misroute flash, the mistake pips and the expiring sort line. A
+    // corrupting package is not a mistake the player made, and dressing it in
+    // the failure colour told them it was. The offset, the tears and the
+    // displaced slab carry the damage instead. This is the whole `DAMAGED`
     // mechanic — the player is meant to see this and hold their tap until the
     // package settles. Without it the shape-shift is silent, which is the
     // version that was rejected for punishing a decision already committed to.
     if (isUnstable) {
       canvas.drawPath(
         shapePath(spec.shape, rect.translate(-3.5, 0)),
-        Paint()..color = Tokens.warn.withValues(alpha: 0.55),
+        Paint()..color = Tokens.hues[spec.colorIndex].withValues(alpha: 0.5),
       );
     }
 
@@ -104,12 +117,15 @@ abstract final class PackagePainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = isActive ? 3.5 : 1.5
-        ..color =
-            isUnstable ? Tokens.warn : (isActive ? Tokens.acid : Tokens.paper),
+        ..color = isActive ? Tokens.acid : Tokens.paper,
     );
 
     if (spec.stamp == PackageStamp.priority) {
       _paintPriority(canvas, rect);
+    }
+
+    if (hazardous) {
+      _paintHazard(canvas, path, rect);
     }
 
     if (isActive) {
@@ -123,6 +139,55 @@ abstract final class PackagePainter {
     }
   }
 
+  /// Mute slab. Identity, stamps, tears and the hazard slash stay off
+  /// until the scanner reveal — leaking any of those would undo the rule.
+  static void _paintHiddenLabel(
+    Canvas canvas,
+    Rect rect, {
+    required bool isActive,
+  }) {
+    final path = shapePath(PackageShape.square, rect);
+    canvas.drawPath(path, Paint()..color = Tokens.mute);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isActive ? 3.5 : 1.5
+        ..color = isActive ? Tokens.acid : Tokens.paper,
+    );
+    if (isActive) {
+      canvas.drawPath(
+        shapePath(PackageShape.square, rect.inflate(7)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = Tokens.acid.withValues(alpha: 0.45),
+      );
+    }
+  }
+
+  /// Warn slash: this identity is the forbidden chute, not the destination.
+  /// Positions are fixed — a jittering mark would be a strobe.
+  static void _paintHazard(Canvas canvas, Path path, Rect rect) {
+    canvas.save();
+    canvas.clipPath(path);
+    final paint = Paint()
+      ..color = Tokens.warn
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawLine(
+      Offset(rect.left + 6, rect.top + 6),
+      Offset(rect.right - 6, rect.bottom - 6),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(rect.right - 6, rect.top + 6),
+      Offset(rect.left + 6, rect.bottom - 6),
+      paint,
+    );
+    canvas.restore();
+  }
+
   /// Horizontal tear bands across a corrupting package.
   ///
   /// Positions are fixed rather than random per frame. A package that jitters
@@ -132,7 +197,7 @@ abstract final class PackagePainter {
     canvas.save();
     canvas.clipPath(path);
     final paint = Paint()
-      ..color = Tokens.warn.withValues(alpha: 0.85)
+      ..color = Tokens.mute.withValues(alpha: 0.85)
       ..style = PaintingStyle.fill;
     for (final at in const [0.24, 0.42, 0.63, 0.81]) {
       final y = rect.top + rect.height * at;

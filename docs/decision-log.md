@@ -597,3 +597,154 @@ Record decisions as append-only entries.
 - Decision: Option (a).
 - Consequences: The headline is part of the typed sequence. Tests skip by tap, not by pumping 500ms. Score, pay, and hazard pay are unchanged. Does not close Gate 4.
 - Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Persistence is a local floor record, not a global board
+
+- Status: approved (human gate, 2026-08-17) — "let's do this the persistence thing, also show leaderboards then and only show the dev menu on the web"
+- Context: Gate 4 is held on persistence. The pitch is beating your own best run and nothing stored one. The human asked for leaderboards in the same breath. Global leaderboards were already rejected (zero backend, v1 excludes online boards). Unlock-gating endless is still undecided. The DEV strip was `kDebugMode` on every debug surface, including Android.
+- Evidence: `docs/design-spec.md` already names `shared_preferences` behind a `ScoreStore`. `lib/core` still cannot import Flutter. Widget tests are not web, so the DEV default must stay an explicit flag in tests.
+- Options considered: (a) local top-five endless board on Home, `ScoreStore` in core, prefs in Flutter, DEV only when `kDebugMode && kIsWeb`; (b) a single `BEST ·` line — smaller, weaker than "leaderboards"; (c) a global board — rejected; (d) unlock endless after onboarding as part of this slice — still undecided, do not invent it.
+- Decision: Option (a). Endless finishes write `postedScore` into a capped local list. Curated shifts are not on the board. Malformed saves load empty, never crash. DEV is absent from Android, including debug APKs. Release AAB still shows nothing.
+- Consequences: Home grows a mute `FLOOR RECORD` under endless. PUNCH IN stays one tap. Does not close Gate 4 — audio, the questionnaire, and the floor timings remain. Does not start Settings or an unlock tree.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Carry-over wallet
+
+- Status: approved (human gate, 2026-08-17) — "a."
+- Context: Persistence just shipped as a local floor record. The human asked, in the same breath as that slice: "also might as well make a carry over wallet huh?" Leftover `PAY` already prints on the endless slip. The shop, the manifest, and two earlier rejections all say that number dies with the run.
+- Evidence:
+  - Endless shop (approved): "Pay is earned this run only; every run starts at 0."
+  - Persistent jokers / wallet across runs: rejected as collection-building, incomparable personal bests, and monetization-shaped machinery (`Endless shop: Balatro-style RNG`).
+  - Permanent unlock tree spending pay across runs: rejected twice (`Four proposals rejected`).
+  - Bank `PAY` into the next run or an unlock: rejected when the slip started printing leftover pay (`Pay and hazard pay on the shift manifest`).
+  - `CLAUDE.md` forbids monetization until repeat play is demonstrated by human testing. The log already names a persistent wallet as that machinery even when it is not real money. One developer web play exists ("looks good"); that is not the repeat-play evidence the constitution wants.
+  - Shop costs are 3–7. A correct sort earns 1 pay at the base rate. The first blind is at 22 sorts, so this-run earnings already cover any single slip. Carry-over does not unlock the first shop — it lets a later run pin *and* still hold last run's leftover.
+  - Pinned memos already die with the run. Score and the floor record are unchanged by leftover pay. The incomparable-runs problem is cash advantage, not surviving power-ups.
+- Options considered:
+  - (a) **Capped carry, cash only.** Endless leftover `PAY` writes to prefs (sibling of the floor record). The next endless run starts with `min(leftover, cap)`. Cap = 7 (one max-cost slip) or 12 (two cheap ones). Home shows mute `PAY N` under `FLOOR RECORD`. Curated stays at 0. Memos still die. Score still ignores pay. Malformed wallet loads as 0. No unlocks.
+  - (b) **Uncapped carry.** Same as (a) with no ceiling. A long overtime run banks a shop for every future first blind.
+  - (c) **Unlock tree / spend the wallet on permanent upgrades.** Standing rejection. Still rejected here — complex inventory, monetization-shaped, makes "beat your best" incomparable.
+  - (d) **Session carry only.** `CLOCK BACK IN` on the same slip keeps leftover pay for that seed. Home, a new day, or a killed process start at 0. Not a wallet.
+  - (e) **Do not.** Leftover pay still prints. It still dies. The three standing rejections stay load-bearing.
+- Decision: Option (a), cap 12. Cash only. Memos still die. Score still ignores pay. (c) stays rejected. Ruled with the paid redraw and the within-run price bump — a wallet without a sink, or a sink without a wallet, would decide the other by accident.
+- Consequences: `ScoreStore` holds a sibling wallet key. Endless leftover writes `min(pay, 12)`. The next endless run starts with that number. Home shows mute `PAY N`. Malformed wallet loads as 0. Does not close Gate 4. Does not start Settings, audio, or an unlock tree.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Paid redraw on the memo board
+
+- Status: approved (human gate, 2026-08-17) — "b. with each redraw getting more expensive"
+- Context: The human asked whether a re-roll that costs pay would help, in the same breath as the still-`proposed` carry-over wallet. The board today is pin-one-or-walk-on. A third verb (pay to see three new slips) is a new decision, not a leftover.
+- Evidence:
+  - `docs/design-spec.md` §5.5 copy is exact: `DEPOT MEMO` / `PIN ONE. OR WALK ON.` / `PAY N` / `COST N` / `WALK ON`. **No `SHOP`, `STORE`, `REROLL`, `BUY`.** The presentation slice already rejected Stitch's `REROLL` copy.
+  - The catalog is eight cards; a blind draws three via `SeededRng.take` on the shop stream (`seed ^ 0x51A70FF`). A redraw is legal input randomness if it spends that same stream before the player pins — same seed plus the same redraws plus the same pin still replays. The shop-approval entry already named "rerolls" on the replay contract; it did not approve a button.
+  - Skip is free and always legal. This-run pay at the first blind is ~22, enough for any one slip (3–7). A redraw does not unlock the board; it spends cash that could have been a pin, or leftover that a wallet would otherwise bank.
+  - Without replacement from the remaining five, a second redraw cannot draw three. Unlimited redraws from the full catalog can show the same three slips again. That is the slot-machine loop the XP-bar entry said not to design for.
+  - A wallet plus a cheap unlimited redraw is the pair that makes leftover pay *do* something besides one extra pin. Ruling them apart produces a fait accompli: approving the wallet "so the reroll has somewhere to spend" or the reroll "so the wallet has a sink."
+- Options considered:
+  - (a) **One paid redraw per board.** Cost 3 (a cheap slip) or 4. Draws three from the full catalog on the shop stream. Copy stays depot: `ASK AGAIN` / `COST N`, never `REROLL`. Grey and no-op if the run cannot afford it. Walk-on stays free. Pin still closes the board.
+  - (b) **Unlimited paid redraws** while the board is open. Same copy and stream. A fat wallet (especially uncapped) turns the board into a slot.
+  - (c) **Free redraw, once.** Spends no pay. Makes skip-and-look-again the rational move and empties the "walk on is cheap" rule.
+  - (d) **Do not.** Three slips, pin or walk on. `REROLL` stays a forbidden word. The replay contract keeps mentioning rerolls as a thing that must be recorded *if they ever exist*.
+- Decision: Option (b), with a rising cost so unlimited is not a slot. First `ASK AGAIN` costs 3; each further redraw on that board costs 3 more (3, 6, 9…). Full catalog, shop stream, never the word `REROLL`. Walk-on stays free. Unaffordable is a no-op. Ruled with the wallet and the within-run price bump.
+- Consequences: `RunEngine.redrawShop` spends the live redraw cost and replaces the hand. Memo board gains mute `ASK AGAIN` / `COST N`. Same seed plus the same redraws plus the same pin still replays. Does not close Gate 4. Does not start Settings or audio.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Shop prices rise the longer the shift runs
+
+- Status: approved (human gate, 2026-08-17) — "also make the shop more expensive too the more the player plays"
+- Context: The wallet and the rising redraw need a sink that is not an unlock tree. "The more the player plays" could mean career count or depth on this floor. Career inflation would make an old floor record and a new one incomparable — the pitch is beating your own best run.
+- Evidence: Three blinds at 22 / 50 / 80. Catalog costs are 3–7. A sort still earns 1 pay. Later blinds already sit on more this-run cash; leaving list prices flat makes the third board cheaper in real terms than the first.
+- Options considered: (a) **+3 per blind this run** — first board is the catalog, second is catalog+3, third is catalog+6. Deterministic. Same seed still replays. (b) Lifetime run-count inflation persisted next to the wallet. Rejected: later sessions play a different shop than the one that wrote the floor record. (c) Leave list prices flat and only escalate redraws.
+- Decision: Option (a). "Plays" means deeper on this floor, not more days on the device. Catalog numbers stay the data; live cost is `list + blindIndex × 3`. No career counter.
+- Consequences: Offers bake the live cost when drawn, so `buy` and the slip stamp stay one number. Does not close Gate 4. Does not start a meta unlock.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-17 — Soundtrack generator is Gemini; SFX are synthesised ticks
+
+- Status: approved (human gate, 2026-08-17) — "let's pivot from Suno, I'll generate my track on google gemini instead, also can you add necessary SFX for the game too"
+- Context: Gate 3 approved generated music plus an asset pipeline, and blocked shipping until Suno's Play terms were recorded. The human is leaving Suno and generating on Gemini instead, and asked for gameplay SFX in the same breath. Settings is still unbuilt; sound-off is still required.
+- Evidence:
+  - Google Terms of Service (effective 2026-07-30): "Some of our services allow you to generate original content. Google won’t claim ownership over that content." https://policies.google.com/terms
+  - Gemini Apps music help: 18+, signed in, Keep Activity on; download as MP3 (audio-only) or MP4 with cover art; every track carries a SynthID watermark. https://support.google.com/gemini/answer/16901237
+  - Generative AI Prohibited Use Policy (2024-12-17) still applies, including "Misrepresenting the provenance of generated content by claiming it was created solely by a human, in order to deceive." https://policies.google.com/terms/generative-ai/use-policy
+  - Lyria 3 does not mimic named artists; a prompt that names a creator is treated as broad inspiration. Tracks are not guaranteed seamless loops.
+  - `docs/design-spec.md` §6 names five cues: correct tick (pitch by combo), combo two-note stab, misroute thud, miss descending tone, shift-ended spin-down. All are parametric. `CLAUDE.md` prefers simple sound before an asset pipeline. `audioplayers` is already inside the three-package ceiling.
+- Options considered: (a) wait for Gemini files before any audio, including SFX; (b) synthesise the five spec cues now, mute on Home, leave music as a drop-in once the human exports loops; (c) generate SFX in Gemini too — a 40ms tick is the wrong job for a song model; (d) build Settings to hold the mute.
+- Decision: Option (b). Suno is no longer the generator. Gemini/Lyria terms are recorded above and satisfy the Gate 3 "verify commercial-use terms against the Play release" gate for *music files the human generates under those terms*. SFX do not wait on those files. Mute lives on Home (`SOUND ON` / `SOUND OFF`); Settings stays unbuilt. Play listing, when it exists, must not claim the soundtrack is solely human-composed.
+- Consequences: `audioplayers` joins `pubspec.yaml`. The no-asset-pipeline line is amended: SFX are runtime PCM; music, when dropped in, lives under `assets/audio/`. No track ships in this slice — there are no files yet. Sound-off play stays first-class. Does not close Gate 4. Does not start Settings, quota, or an unlock tree.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Constitution-safe visual slice: memo motion, chute press, post-route payoff
+
+- Status: approved (human gate, 2026-08-22) — "Implement the constitution-safe visual direction"
+- Context: A Stitch-derived neon/CRT brief was reviewed against the standing decisions. The review found most of it either already shipped or already rejected by name, and recommended the smallest direction that makes the game feel alive without touching a routable package. The human approved that direction and explicitly excluded active-package trails.
+- Evidence:
+  - The layered model the brief proposed is already the approved architecture: `docs/design-spec.md` §5.2 gives the *background* stepped scan lines while "packages and chutes get no decorative treatment", and *Machine intensity on a roll* (2026-08-17) shipped exactly that.
+  - Active-package trails were rejected on four grounds, not on taste. The `DAMAGED` telegraph is now a hue-matched displaced ghost of the package, so a hue-matched trail shares its visual grammar and would make D-03 ambiguous rather than invisible — a failure no existing test catches. "Thin rectangular afterimages" are square-adjacent in a vocabulary of circle/triangle/**square**. A trail adds a second attached visual competing with the acid active marker. And in grayscale it contributes nothing while still crowding the silhouette.
+  - Chute press feedback is *not* covered by the existing point-of-action approval, which governs outcome feedback after the engine resolves. Input acknowledgement is a different thing and needed its own decision.
+- Options considered: (a) constitution-safe presentation, no active trail; (b) the same plus quality-flagged restrained trails, default-off; (c) full neon with trails in standard play.
+- Decision: Option (a). Three changes. **MemoBoard now drives the shared `MemoTransition`** with a `variant` parameter defaulting to `MemoVariant.shop`, so all six presentations are reachable without a second overlay; the wall carries the stronger treatment (scan lines at 0.09 in neon, a one-shot acid wipe) and the slips stay paper. **Chute press feedback** is a ~110ms compression plus two `mute` registration marks at the lip, firing on every press including an empty-belt no-op — deliberately never `acid`, which means "correct", and never `warn`, which means "you lost something". **The post-route burst gains** a vertical wake, an impact flash and paper fragments in neon; all of it is drawn only after the package has left the belt.
+- Consequences: A commit latch was added to `MemoBoard` because the exit is now animated — buying empties the offers, but `WALK ON` stays mounted while the paper retracts, and without the latch that tap would call `skipShop` after a `buy` and fire a second callback. Two existing memo tests now settle before asserting the close, because the engine commits on the tap while the callback waits for the animation. `SortRushGame.neon` is presentation-only and may never reach a rule or a timing value. No active-package trail was built; §5.2 and acceptance criterion 7 were not reopened.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Music wired: partial drop, tempo-band fallback, one mute
+
+- Status: approved (human gate, 2026-08-22) — "can you apply to the game now?"
+- Context: The human dropped ten Gemini/Lyria OGG loops into `assets/audio/`. Seven of the ten level tracks arrived (`l01`–`l06`, `l09`) plus both endless layers and `home`. `l07`, `l08`, `l10` and the results sting are still missing.
+- Evidence:
+  - **The files were named `101.ogg`–`109.ogg`, digit one, where `docs/audio-brief.md` specifies `l01.ogg`, lowercase L for "level".** The two are near-identical in most fonts and the failure mode is silent — the game simply never finds the track. Renamed to the brief's names; a test now asserts `levelAsset(1)` does not contain `101`.
+  - **Discovery via `AssetManifest.json` found nothing.** Flutter no longer emits that file; a release web bundle ships `AssetManifest.bin`. Caught by inspecting the built bundle rather than by trusting the wiring, and fixed to `AssetManifest.loadFromAssetBundle`. Verified end to end in a browser: `home.ogg` on the home screen and `l05.ogg` on shift 5, each `200` then `206`.
+  - `rootBundle` reads never complete under the test binding, so discovery is injectable (`AudioController(tracks: ...)`) exactly as `prefs` and `sfx` already are, and the production path carries a 2s timeout. A hung splash screen is worse than silence.
+  - `AssetMusic` creates its players lazily, matching `SynthSfx`'s pool. Constructing a platform player eagerly hung every test that built an `AudioController`.
+- Options considered: (a) play only what shipped and leave gaps silent; (b) fall back within the tempo band; (c) block music until all twelve tracks exist.
+- Decision: Option (b). A missing level track borrows from the nearest level in its own tempo band — 7 and 8 take `l06` at 108 BPM, 10 takes `l09` at 116 — and never borrows across bands, because a 92 BPM loop under a 116 BPM shift is worse than silence. This is the collapse strategy the audio brief already names. Endless crossfades `endless_low` into `endless_high` on `MusicCatalog.endlessMix`, tied to `EndlessCurve.phaseTwoEnd` so full intensity lands where the curve stops moving rather than on a number chosen to sound good.
+- Consequences: One mute governs music and SFX; sound-off stays a first-class mode and music remains atmosphere, never a cue. `assets/audio/` is declared in `pubspec.yaml` as the brief required rather than worked around. The four missing files degrade audibly but deliberately; dropping them in later needs no code change. The results sting has no fallback and stays silent.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-22 — QA pass on the visual slice: one P1 and four P2s fixed
+
+- Status: approved (human gate, 2026-08-22) — QA pass requested and fixes applied
+- Context: A Test Agent pass over the day's visual work, run against a green suite. `dart format`, `flutter analyze` and 405 tests were all passing when every finding below was made.
+- Evidence:
+  - **P1 — Reduce Motion plus the depot memo threw on every close.** `MemoTiming.exit` returns `Duration.zero` under reduce motion, so `MemoTransition.close` fired `_fireClosed` synchronously; `close` is reached from `didUpdateWidget`, i.e. during build, and `onClosed` is `PlayScreen._closeShop`, which calls `setState` on an ancestor that had already built. The existing test covered this exact path but passed `onClosed: () => closed++` — a benign callback cannot expose a build-phase violation. Reproduced with a callback that does what production does.
+  - **P2 — the chute press never decayed.** `_press` was set to 1 and never decremented; the compression and both registration marks stayed on for the rest of the run. `chute_press_test.dart` asserted only that nothing threw.
+  - **P2 — Home's lobby loop never restarted.** `didChangeDependencies` does not re-fire when a run pops back to an already-mounted Home, and `PlayScreen.dispose` had stopped the music. The app went silent on Home for the rest of the session.
+  - **P2 — the documented DEV jumps crashed under a real `AudioScope`.** `_createGame` runs from `initState` on a jump, and `AudioScope.maybeOf` registers a dependency, which is illegal there. The sfx lookup one line above already used `getInheritedWidgetOfExactType` for exactly this reason.
+  - **P3 — effect counters never returned to baseline.** `BinComponent.onRemove` did not retire a live burst. A run ends on the same frame as its last sort, so this leaked on nearly every completed run, and `DevStats` is static — the profiler's "returned to baseline" signal was worthless from run two onward.
+  - **`ASK AGAIN` bypassed the `_closing` latch** and stayed hit-testable through the exit, saved only by `RunEngine`'s phase guard.
+  - Three P3 music state bugs: `_current` was recorded before playback was attempted, so a failed decode blocked retry for the session; `_mix` was not reset on `playEndless` or `stop`, so a second endless run could open with the high-pressure layer at full; `SynthSfx` fired playback unawaited and unguarded.
+  - The claim in `docs/qa-visual-workflow.md` that nothing in the shipped app imports `lib/dev/` was **false as written** — `dev_stats.dart` is imported by `bin_component.dart` and `memo_transition.dart`. The `kDevTools` const-fold is sound, but the documented grep tested only the lab. Corrected, and release absence of the counters is now verified rather than asserted.
+- Options considered: fix now; defer behind the device test; accept.
+- Decision: Fix all of the above. `pauseRun`/`resumeRun` also gained `_laidOut` guards — they reached `late final engine` unguarded, and the lifecycle observer that can call them is machine-driven, so "no human taps that fast" is not an argument.
+- Consequences: `BinComponent.pressLevel` is exposed `@visibleForTesting` because the decay bug proved a pixel assertion would not have caught it. Two concerns remain open and are **not** fixed here: acceptance criterion 8 is violated indirectly — the memo overlay blocks input for ~176ms in Standard and ~240ms in Neon while `engine.update` keeps advancing `_elapsed`, which drives the endless board-swap schedule, so a presentation flag moves a gameplay clock; and the neon collapse wake reaches ~24px above the chute lip, which is currently unreachable only because the 0.65s spawn floor keeps the following package further back. Both need a human decision.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Session state recorded for handoff
+
+- Status: informational — not a decision, recorded so the next session does not re-derive it
+- Context: End of the visual and audio slice. Work is being handed to another editor, so the tree state, the open decisions and the traps encountered are written down rather than left in a transcript.
+- Evidence: `dart format` reports 100 files, 0 changed. `flutter analyze` reports no issues. `flutter test` reports 412 passing. `flutter build web --release` builds clean. Nothing is committed — 77 paths are dirty, including the new `assets/`, `lib/dev/` and `docs/screenshots/` directories.
+- Options considered: leave the state in the conversation; write a handoff document.
+- Decision: `docs/session-handoff.md` carries the full state. Three things need a human and are named there rather than assumed: acceptance criterion 8 is violated by the memo overlay window, where a presentation setting advances the endless board-swap clock and can spawn a package behind the covering overlay; whether "which bin?" is permanently the core skill, on which the whole rhythm question depends; and Gate 4, which now needs only the device session, since music exists and the deferral option has closed.
+- Consequences: No code changed for this entry. The criterion 8 fix is specified but deliberately not applied — it moves a gameplay clock, so it is the human's call rather than an agent's. Two QA passes ran today; round one's findings and fixes are recorded in the two preceding entries, and the round-two recording pass was still running when this was written, so its verdict is not included here.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Shop overlay holds the engine; neon wake owns its bound
+
+- Status: approved (human gate, 2026-08-22) — "no need, just execute them right now"
+- Context: Criterion 8 and the neon wake geometry were named in the handoff as human calls and left unfixed. Active-package trails stay rejected. The human asked to apply the two named fixes on `feature/immersive-mode`.
+- Evidence: `buy` / `skipShop` return the engine to `running` on the tap, while `PlayScreen._shopOpen` stays true through the exit (~160ms standard, ~230ms neon). That window advances `_elapsed`, which drives endless swaps and spawns a package behind the covering overlay. The neon wake was 34px, reaching ~24px above the chute lip, and was only safe because of the 0.65s spawn floor.
+- Options considered: leave both; pause in core until a new `resumeFromShop`; hold `engine.update` in the Flame shell until `_closeShop`, and clip the wake in the effect.
+- Decision: Hold in the shell. `SortRushGame.overlayHoldsEngine` skips `engine.update` from shop-open until the overlay's `onClosed`. Core `buy` / `skipShop` still commit immediately, so existing shop tests are unchanged. The wake clips to `ChipBurstSpec.maxWakeAboveLip` (10px) even if a caller asks for more. No active-package trail.
+- Consequences: Standard, neon, and reduce-motion now spend the same amount of engine time during the shop — zero until the paper is gone. Shortening the spawn floor can no longer put the wake on a routable package. Does not close Gate 4. Does not fix the lobby-music dispose race.
+- Owner/gate: human — Gate 4.
+
+### 2026-08-22 — Endless shop memos are visible tradeoffs
+
+- Status: approved (human gate, 2026-08-22) — plan confirmed; stacking all three pins, no draw filter
+- Context: The shop loop was already input-randomness: the shop stream draws three slips, the player sees the text, one pin closes the board. Six of eight catalog entries were one-sided buffs. The human asked for every memo to carry a visible upside and downside, with RNG only choosing which tradeoffs appear.
+- Evidence: `HIGH VOLUME` was the only mixed card. `+1 LIFE` and `SLOW THE BELT` had no cost. A hidden post-purchase curse would be output randomness, which the 2026-08-17 shop ruling already forbids. Chute-press delay (Heavy Gloves) would make a committed tap resolve late, which is the same unexplainable miss `DAMAGED` was rejected for as a silent morph.
+- Options considered: (a) hidden random disadvantages; (b) visible tradeoffs, stack all three pins; (c) visible tradeoffs plus a major-modifier draw filter or a two-pin cap.
+- Decision: **Option (b).** Nine memos, each `UPSIDE · DOWNSIDE` on the slip. Downsides live in the additive `TuningDelta`, not a roll after the pin. Same seed plus the same shop choices still replays. Heavy Gloves, `+1 LIFE`, and `SLOW THE BELT` are out. `CALM LABELS` / `OVERTIME PAY` / `HIGH VOLUME` fold into the new list. The first blind stays 22; Overtime only shifts later boards. PRIORITY BONUS may introduce `PRIORITY` before `P=65` because level 10 already taught it. After `P=130` a shorter read window can clamp — documented, not filtered.
+- Consequences: Replay contract unchanged. Fairness floors still clamp last. Catalog is data in `lib/core/shop.dart`. Does not close Gate 4.
+- Owner/gate: human — Gate 4.

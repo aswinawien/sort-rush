@@ -61,7 +61,9 @@ void main() {
 
   group('phase two takes the reading time', () {
     test('the spawn gap holds at its floor while the read window closes', () {
-      for (var p = EndlessCurve.phaseOneEnd; p <= EndlessCurve.phaseTwoEnd; p++) {
+      for (var p = EndlessCurve.phaseOneEnd;
+          p <= EndlessCurve.phaseTwoEnd;
+          p++) {
         expect(curve.spawnIntervalAt(p), EndlessCurve.spawnIntervalFloor,
             reason: 'the spawn gap moved during phase two, at P=$p');
       }
@@ -152,7 +154,8 @@ void main() {
       var peak = 0;
 
       var guard = 0;
-      while (engine.score.sorted < EndlessCurve.phaseOneEnd && guard++ < 40000) {
+      while (
+          engine.score.sorted < EndlessCurve.phaseOneEnd && guard++ < 40000) {
         skipShopIfOpen(engine);
         engine.update(1 / 60);
         if (engine.active.length > peak) {

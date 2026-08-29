@@ -82,4 +82,39 @@ void main() {
       );
     }
   });
+
+  test('a corrupting package wears no warning colour', () async {
+    // `Tokens.warn` means "you lost something": it is the misroute flash, the
+    // mistake pips and the expiring sort line. A package corrupting on the belt
+    // is not a mistake the player made. Dressing it in the failure colour told
+    // them it was, which is the one thing the original brief got right.
+    //
+    // Detects the warn family (#FF4B26) by its signature — strongly red with
+    // little green and little blue. Magenta hue1 survives on blue, amber hue2
+    // on green, acid and paper on green, so only warn can trip this.
+    for (var hue = 0; hue < 3; hue++) {
+      final pixels = await render(
+        isActive: false,
+        isUnstable: true,
+        of: PackageSpec(shape: PackageShape.circle, colorIndex: hue),
+      );
+      var offenders = 0;
+      for (var i = 0; i < pixels.length; i += 4) {
+        final r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+        final a = pixels[i + 3];
+        if (a > 128 && r > 200 && g < 130 && b < 100) offenders++;
+      }
+      expect(offenders, 0,
+          reason: 'hue $hue paints warning colour while corrupting');
+    }
+  });
+
+  test('corruption does not steal the active outline', () async {
+    // Selection and damage are different channels. An unstable package that is
+    // also the one about to be routed must still read as selected.
+    expect(
+      await render(isActive: true, isUnstable: true),
+      isNot(await render(isActive: false, isUnstable: true)),
+    );
+  });
 }

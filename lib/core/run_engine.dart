@@ -1,11 +1,13 @@
 import 'dart:collection';
 
 import 'board.dart';
+import 'difficulty.dart';
 import 'level_config.dart';
 import 'package_spec.dart';
 import 'routing.dart';
 import 'run_tuning.dart';
 import 'score_state.dart';
+import 'shift_events.dart';
 import 'shop.dart';
 import 'tuning_delta.dart';
 import 'seeded_rng.dart';
@@ -29,11 +31,24 @@ class ActivePackage {
     required PackageSpec spec,
     required this.readWindow,
     required this.telegraphSeconds,
+    this.lane = 0,
     this.morphAt,
     this.morphTo,
   }) : _spec = spec;
 
   final int id;
+
+  /// Horizontal position across the belt lane, in package-width steps.
+  ///
+  /// Zero is dead centre, which is where every package sat before clusters
+  /// existed and where a solo package still sits. A cluster spreads its
+  /// members symmetrically — `-1, 0, +1` for three — so they read as separate
+  /// objects rather than one column.
+  ///
+  /// Derived from the member's index in its cluster, never rolled, so the
+  /// replay contract is untouched: same seed plus same taps still reproduces
+  /// the run exactly.
+  final double lane;
 
   /// How long this package's corrupted state shows before it changes, fixed
   /// when it spawned — for the same reason as [readWindow]. A warning that
@@ -155,14 +170,28 @@ class ShopOpenedEvent extends RunEvent {
   final List<CardSpec> offers;
 }
 
+/// A quota contract just paid out or forfeited. Presentation may stamp it;
+/// the wallet has already moved.
+class QuotaSettledEvent extends RunEvent {
+  const QuotaSettledEvent({required this.success, required this.segmentPay});
+
+  final bool success;
+
+  /// Pay earned during the contract — doubled on success, stripped on fail.
+  final int segmentPay;
+}
+
 /// The whole game, minus rendering.
 ///
 /// Imports neither Flame nor Flutter. This is what makes the scoring, combo,
 /// routing, and state-transition tests possible without a game loop or a
 /// widget tree, and it is the main defence against hidden coupling.
 class RunEngine {
-  RunEngine({required this.level, required this.seed})
-      : _rng = SeededRng(seed),
+  RunEngine({
+    required this.level,
+    required this.seed,
+    int startingPay = 0,
+  })  : _rng = SeededRng(seed),
         // Own stream, derived from the run seed, so a shop draw can never
         // shift package spawns. XOR is a bijection: every seed still maps
         // to a distinct shop stream.
@@ -172,7 +201,11 @@ class RunEngine {
             ? null
             : ChuteBoard(
                 EndlessBoard.ladder.sublist(0, EndlessBoard.openingCount),
-              );
+              ) {
+    if (_board != null) {
+      score.pay = EndlessShop.clampWallet(startingPay);
+    }
+  }
 
   /// How long the belt keeps still after a run ends, before results show.
   /// An instant cut on failure reads as a crash and robs the player of the
@@ -188,6 +221,14 @@ class RunEngine {
   /// Deliberately shorter than the 1.20s read-window floor: a save has to be
   /// a save, not the ordinary case. See docs/decision-log.md, "Clutch saves".
   static const double clutchWindow = 0.5;
+
+  /// Progress at which a scanned package shows its label.
+  ///
+  /// Does not touch [ActivePackage.readWindow]. On the 1.20s floor the
+  /// clutch window begins at ~0.583, so the label appears already inside
+  /// the save — that is the designed interaction, not a coincidence.
+  /// See docs/decision-log.md, "Scanner reveal as a progress threshold".
+  static const double scannerRevealAt = 0.60;
 
   final LevelConfig level;
   final int seed;
@@ -205,8 +246,18 @@ class RunEngine {
   double _nextSwapAt = EndlessBoard.swapInterval;
   bool _drainingForShop = false;
   int _nextBlind = 0;
+  int _redrawsThisBoard = 0;
   List<CardSpec> _shopOffers = const [];
   final List<CardSpec> _pinned = [];
+  ShiftEventSpec? _pendingEvent;
+  ShiftEventSpec? _liveEvent;
+  bool _hazardousCargo = false;
+  bool _scannerReveal = false;
+  bool _quotaLive = false;
+  bool _quotaMissed = false;
+  int _quotaPayStart = 0;
+  int _quotaSortedStart = 0;
+  int _quotaTarget = 0;
 
   /// The numbers the belt is running on right now — the level as modified by
   /// the difficulty curve and anything the player has bought. Read this, never
@@ -218,8 +269,40 @@ class RunEngine {
 
   /// Where [package] belongs *right now*. Endless reads the live board, which
   /// can swap and grow; curated reads the level's rule, which never moves.
+  ///
+  /// Under hazardous cargo this is the *forbidden* chute, not the tap.
   int binFor(PackageSpec package) =>
       _board?.binFor(package) ?? level.routing.binFor(package);
+
+  /// Whether tapping [binIndex] is a correct sort for [package].
+  ///
+  /// Hazardous cargo flips unique-destination equality into avoid-the-match.
+  /// Autoplay, tests, and [tapBin] all go through here.
+  bool isCorrectBin(PackageSpec package, int binIndex) {
+    final unique = binFor(package);
+    if (!_hazardousCargo) {
+      return unique == binIndex;
+    }
+    return hazardousAccepts(unique, binIndex, liveBinCount);
+  }
+
+  /// Whether the scanner has uncovered [package]'s identity.
+  ///
+  /// A visibility rule, not a tap target. Progress threshold only.
+  bool labelVisible(ActivePackage package) =>
+      !_scannerReveal || package.progress >= scannerRevealAt;
+
+  /// Every later package is two-valid / one-forbidden. Pin lasts the run.
+  bool get hazardousCargo => _hazardousCargo;
+
+  /// Labels stay hidden until [scannerRevealAt]. Pin lasts the run.
+  bool get scannerReveal => _scannerReveal;
+
+  /// A quota contract is armed and has not yet paid out or forfeited.
+  bool get quotaLive => _quotaLive;
+
+  /// Clean sorts still needed to close the live contract. Zero when idle.
+  int get quotaTarget => _quotaLive ? _quotaTarget : 0;
 
   /// Chutes to draw. During a grow telegraph this is the *next* board, so the
   /// new chute is visible as a warning before it can be tapped.
@@ -236,15 +319,25 @@ class RunEngine {
   /// Memos currently on the board. Empty when the shop is closed.
   List<CardSpec> get shopOffers => _shopOffers;
 
+  /// What the next `ASK AGAIN` costs on this board.
+  int get redrawCost => EndlessShop.redrawCost(_redrawsThisBoard);
+
   /// Memos pinned this run, in buy order. Lasts until the run ends.
   List<CardSpec> get pinned => List.unmodifiable(_pinned);
+
+  /// Named rule printed on the open board. Not applied until the board
+  /// closes. Null when the shop is shut.
+  ShiftEventSpec? get pendingEvent => _pendingEvent;
+
+  /// Named rule currently running this band. Expires when the next shop
+  /// opens, or when the run ends.
+  ShiftEventSpec? get liveEvent => _liveEvent;
 
   bool get isShopping => _phase == RunPhase.shopping;
 
   /// Fill of the current pressure band, 0–1. Curated levels have no band.
-  double get pressureProgress => _board == null
-      ? 0
-      : EndlessBoard.pressureProgress(pressure);
+  double get pressureProgress =>
+      _board == null ? 0 : EndlessBoard.pressureProgress(pressure);
 
   /// Pressure index. Increments per correct sort and never decreases, which
   /// is exactly what `score.sorted` already does — so there is no second
@@ -254,6 +347,17 @@ class RunEngine {
   RunPhase _phase = RunPhase.ready;
   RunOutcome _outcome = RunOutcome.none;
   double _spawnTimer = 0;
+
+  /// Seconds until the next spawn. Equal to `spawnInterval` outside a cluster;
+  /// shorter inside one and longer after it, so the average holds.
+  double _spawnDue = 0;
+
+  /// Members still owed by the cluster in progress.
+  int _burstLeft = 0;
+
+  /// Size of the cluster in progress, kept so the recovery gap can be sized
+  /// to keep the average spacing at `spawnInterval`.
+  int _burstSize = 1;
   double _endingTimer = 0;
   double _elapsed = 0;
   int _nextId = 0;
@@ -304,6 +408,7 @@ class RunEngine {
     _phase = RunPhase.running;
     _spawn();
     _spawnTimer = 0;
+    _resetBurst();
   }
 
   void pause() {
@@ -318,14 +423,8 @@ class RunEngine {
   void debugOpenShop({int pay = 20}) {
     _active.clear();
     _telegraph = null;
-    _drainingForShop = false;
     score.pay = pay;
-    _shopOffers = _shopRng.take(
-      List<CardSpec>.of(EndlessShop.catalog),
-      EndlessShop.offerCount,
-    );
-    _phase = RunPhase.shopping;
-    _events.add(ShopOpenedEvent(_shopOffers));
+    _openShop();
   }
 
   /// Debug-only. Forces combo `x5`, pins two memos, and parks pressure in
@@ -353,16 +452,22 @@ class RunEngine {
     _pinned
       ..clear()
       ..addAll(pins);
+    _pendingEvent = null;
+    _liveEvent = null;
     _modifiers = TuningDelta.none;
+    _hazardousCargo = false;
+    _scannerReveal = false;
+    _clearQuota();
     for (final card in pins) {
       _modifiers = _modifiers + card.delta;
+      _activateMechanic(card.mechanic);
     }
     _snapBoardToPressure();
     _retune();
     // P=32 is already past the first blind. Skip blinds the jump leapt over
     // so the board does not slam open on the first frame of a roll review.
     while (_nextBlind < EndlessShop.blinds.length &&
-        pressure >= EndlessShop.blinds[_nextBlind]) {
+        pressure >= _shopThreshold(_nextBlind)) {
       _nextBlind++;
     }
     if (_phase != RunPhase.finished && _phase != RunPhase.ending) {
@@ -418,6 +523,7 @@ class RunEngine {
       pressure: pressure,
       modifiers: _modifiers,
     );
+    score.comboCap = _tuning.maxComboTier;
     _checkEnd();
   }
 
@@ -450,8 +556,9 @@ class RunEngine {
       if (package.progress < 1.0) {
         return false;
       }
-      score.registerDrop();
+      score.registerDrop(scorePenalty: _missScorePenalty);
       _events.add(const PackageDroppedEvent());
+      _quotaForfeit();
       anyDropped = true;
       return true;
     });
@@ -467,12 +574,12 @@ class RunEngine {
     // postpone a shop that is supposed to open on an empty belt.
     if (_telegraph == null &&
         !_drainingForShop &&
-        _spawnTimer >= _tuning.spawnInterval &&
+        _spawnTimer >= _spawnDueOrInterval &&
         _active.length < _tuning.maxActive) {
       // Reset rather than subtract, so a backlog cannot burst-spawn several
       // packages the instant the belt clears.
       _spawnTimer = 0;
-      _spawn();
+      _spawnFromSchedule();
     }
 
     _tickBoard(dt);
@@ -500,12 +607,17 @@ class RunEngine {
 
     _active.remove(package);
 
-    if (binFor(package.spec) == binIndex) {
+    if (isCorrectBin(package.spec, binIndex)) {
       final tierBefore = score.comboTier;
+      var scorePercent = _tuning.scorePercent;
+      if (package.spec.stamp == PackageStamp.priority) {
+        scorePercent += _tuning.priorityScorePercent;
+      }
       final gained = score.registerCorrect(
         clutch: clutch,
-        scorePercent: _tuning.scorePercent,
+        scorePercent: scorePercent,
         payPercent: _tuning.payPercent,
+        clutchBonus: _tuning.clutchBonus,
       );
       final tierAfter = score.comboTier;
       _events.add(
@@ -522,14 +634,16 @@ class RunEngine {
       // A correct sort moves the pressure index, so the numbers are resolved
       // again here. `_retune` ends with the same `_checkEnd` this used to do.
       _retune();
+      _quotaCheckSuccess();
       _considerGrow();
       _considerShop();
       _maybeOpenShop();
       return TapResult.correct;
     }
 
-    score.registerMisroute();
+    score.registerMisroute(scorePenalty: _missScorePenalty);
     _events.add(PackageMisroutedEvent(binIndex));
+    _quotaForfeit();
     _checkEnd();
     _maybeOpenShop();
     return TapResult.misroute;
@@ -589,14 +703,62 @@ class RunEngine {
   }
 
   /// An ordinary package, taking the level's read window as it stands now.
-  ActivePackage _plain(PackageSpec spec) => ActivePackage(
+  ActivePackage _plain(PackageSpec spec, {double lane = 0}) => ActivePackage(
         id: _nextId++,
         spec: spec,
         readWindow: _tuning.readWindow,
         telegraphSeconds: _tuning.telegraphSeconds,
+        lane: lane,
       );
 
-  void _spawn() {
+  /// The interval currently in force. Falls back to the plain spawn interval
+  /// until the first cluster is scheduled.
+  double get _spawnDueOrInterval =>
+      _spawnDue > 0 ? _spawnDue : _tuning.spawnInterval;
+
+  /// Emits one package and schedules the next.
+  ///
+  /// A cluster of `n` is emitted `burstGapFraction * spawnInterval` apart and
+  /// is followed by a recovery gap sized so the whole cycle still takes
+  /// `spawnInterval * n`. **Average spacing is therefore unchanged** — the
+  /// belt receives packages lumpy rather than metronomic, which is the only
+  /// density lever left once the read window and spawn interval are both
+  /// pinned to their fairness floors.
+  void _spawnFromSchedule() {
+    final interval = _tuning.spawnInterval;
+    final curve = level.curve;
+
+    if (_burstLeft <= 0) {
+      _burstSize = curve == null ? 1 : curve.burstSizeAt(pressure);
+      _burstLeft = _burstSize;
+    }
+
+    final index = _burstSize - _burstLeft;
+    _spawn(lane: _laneFor(index, _burstSize));
+    _burstLeft--;
+
+    if (_burstLeft > 0) {
+      _spawnDue = interval * EndlessCurve.burstGapFraction;
+      return;
+    }
+    // Recovery: what is left of the cluster's share of the clock.
+    final spent =
+        interval * EndlessCurve.burstGapFraction * (_burstSize - 1);
+    final recovery = interval * _burstSize - spent;
+    _spawnDue = recovery < interval ? interval : recovery;
+  }
+
+  void _resetBurst() {
+    _burstLeft = 0;
+    _burstSize = 1;
+    _spawnDue = 0;
+  }
+
+  /// Symmetric spread: `0` alone, `-0.5/+0.5` for a pair, `-1/0/+1` for three.
+  static double _laneFor(int index, int size) =>
+      size <= 1 ? 0 : index - (size - 1) / 2;
+
+  void _spawn({double lane = 0}) {
     final board = _board;
     final spec = board != null
         ? _rng.pick(board.order)
@@ -619,11 +781,12 @@ class RunEngine {
               colorIndex: spec.colorIndex,
               stamp: PackageStamp.priority,
             ),
+            lane: lane,
           ),
         );
         return;
       }
-      _active.add(_plain(spec));
+      _active.add(_plain(spec, lane: lane));
       return;
     }
 
@@ -751,7 +914,7 @@ class RunEngine {
     if (board == null || _telegraph != null || board.length < 2) {
       return;
     }
-    _nextSwapAt = _elapsed + EndlessBoard.swapInterval;
+    _nextSwapAt = _elapsed + _tuning.swapInterval;
     final pair = _rng.take(List<int>.generate(board.length, (i) => i), 2);
     _beginTelegraph(
       LayoutChangeKind.swap,
@@ -792,7 +955,7 @@ class RunEngine {
     _board = pending.next;
     _telegraph = null;
     if (pending.kind == LayoutChangeKind.grow) {
-      _nextSwapAt = _elapsed + EndlessBoard.swapInterval;
+      _nextSwapAt = _elapsed + _tuning.swapInterval;
     }
     _events.add(LayoutChangedEvent(pending.kind));
     // A swap can straddle a grow threshold. Recheck once the board is live.
@@ -802,13 +965,39 @@ class RunEngine {
   }
 
   double get _priorityRate {
+    var base = 0.0;
     if (level.priorityRate > 0) {
-      return level.priorityRate;
+      base = level.priorityRate;
+    } else if (_board != null && pressure >= EndlessBoard.priorityAt) {
+      base = EndlessBoard.priorityRate;
     }
-    if (_board != null && pressure >= EndlessBoard.priorityAt) {
-      return EndlessBoard.priorityRate;
+    final rate = base + _tuning.priorityRate;
+    if (rate <= 0) {
+      return 0;
     }
-    return 0;
+    if (rate > 1) {
+      return 1;
+    }
+    return rate;
+  }
+
+  /// How many current-tier sorts a miss deducts. Zero when the memo is off.
+  int get _missScorePenalty {
+    if (_tuning.missScorePenalty <= 0) {
+      return 0;
+    }
+    return RunScore.baseValue *
+        score.comboTier *
+        _tuning.scorePercent ~/
+        100 *
+        _tuning.missScorePenalty;
+  }
+
+  /// Pressure that opens board [index]. The first blind never shifts — that
+  /// is how the player reaches the memo that would delay the others.
+  int _shopThreshold(int index) {
+    final shift = index == 0 ? 0 : _tuning.blindShift;
+    return EndlessShop.blinds[index] + shift;
   }
 
   void _considerShop() {
@@ -821,25 +1010,95 @@ class RunEngine {
     if (_nextBlind >= EndlessShop.blinds.length) {
       return;
     }
-    if (pressure < EndlessShop.blinds[_nextBlind]) {
+    if (pressure < _shopThreshold(_nextBlind)) {
       return;
     }
     _drainingForShop = true;
   }
 
   void _maybeOpenShop() {
-    if (!_drainingForShop ||
-        _active.isNotEmpty ||
-        _phase != RunPhase.running) {
+    if (!_drainingForShop || _active.isNotEmpty || _phase != RunPhase.running) {
       return;
     }
-    _shopOffers = _shopRng.take(
-      List<CardSpec>.of(EndlessShop.catalog),
-      EndlessShop.offerCount,
-    );
+    _openShop();
+  }
+
+  /// Belt is empty. Expire the last band's event, draw the hand, draw one
+  /// event for the *next* band. ASK AGAIN later replaces the slips only.
+  void _openShop() {
+    _quotaSucceedIfLive();
+    _expireLiveEvent();
+    _redrawsThisBoard = 0;
+    _shopOffers = _drawHand();
+    _pendingEvent = _board == null ? null : _drawEvent();
     _drainingForShop = false;
     _phase = RunPhase.shopping;
     _events.add(ShopOpenedEvent(_shopOffers));
+  }
+
+  ShiftEventSpec _drawEvent() =>
+      _shopRng.pick(List<ShiftEventSpec>.of(ShiftEvents.catalog));
+
+  void _expireLiveEvent() {
+    final live = _liveEvent;
+    if (live == null) {
+      return;
+    }
+    final previousInterval = _tuning.swapInterval;
+    _modifiers = _modifiers + live.delta.negated;
+    _liveEvent = null;
+    _retune();
+    _rescheduleSwapIfNeeded(previousInterval);
+  }
+
+  void _applyPendingEvent() {
+    final event = _pendingEvent;
+    if (event == null) {
+      return;
+    }
+    final previousInterval = _tuning.swapInterval;
+    _liveEvent = event;
+    _pendingEvent = null;
+    _modifiers = _modifiers + event.delta;
+    _retune();
+    _rescheduleSwapIfNeeded(previousInterval);
+  }
+
+  void _rescheduleSwapIfNeeded(double previousInterval) {
+    if (_tuning.swapInterval != previousInterval) {
+      _nextSwapAt = _elapsed + _tuning.swapInterval;
+    }
+  }
+
+  List<CardSpec> _drawHand() {
+    final drawn = _shopRng.take(
+      List<CardSpec>.of(EndlessShop.catalog),
+      EndlessShop.offerCount,
+    );
+    return [
+      for (final card in drawn)
+        card.withCost(
+          EndlessShop.slipCost(
+            card,
+            _nextBlind,
+            extraBump: _tuning.costBump,
+          ),
+        ),
+    ];
+  }
+
+  /// Pays for a new hand. No-op if the shop is closed or the run cannot
+  /// afford the live redraw cost. Does not close the board.
+  bool redrawShop() {
+    if (_phase != RunPhase.shopping) {
+      return false;
+    }
+    if (!score.spend(redrawCost)) {
+      return false;
+    }
+    _shopOffers = _drawHand();
+    _redrawsThisBoard++;
+    return true;
   }
 
   /// Pins a memo. No-op if the shop is closed or the run cannot afford it.
@@ -856,8 +1115,20 @@ class RunEngine {
     }
     applyModifier(card.delta);
     _pinned.add(card);
+    _activateMechanic(card.mechanic);
     _closeShop();
     return true;
+  }
+
+  /// Test/debug. Pins [card] as if bought on a drained belt. Does not
+  /// spend pay and does not close a shop. Unused by any release path.
+  void debugPin(CardSpec card) {
+    if (_phase == RunPhase.ready) {
+      start();
+    }
+    applyModifier(card.delta);
+    _pinned.add(card);
+    _activateMechanic(card.mechanic);
   }
 
   /// Leaves the memos on the wall. Always legal.
@@ -869,9 +1140,90 @@ class RunEngine {
   }
 
   void _closeShop() {
+    _applyPendingEvent();
     _shopOffers = const [];
+    _redrawsThisBoard = 0;
     _nextBlind++;
     _phase = RunPhase.running;
     _spawnTimer = 0;
+    // The board drains the belt, so a half-emitted cluster must not resume
+    // across it and land its remainder on an empty belt at cluster spacing.
+    _resetBurst();
+  }
+
+  void _activateMechanic(CardMechanic mechanic) {
+    switch (mechanic) {
+      case CardMechanic.none:
+        return;
+      case CardMechanic.quota:
+        _armQuota();
+      case CardMechanic.hazardous:
+        _hazardousCargo = true;
+      case CardMechanic.scanner:
+        _scannerReveal = true;
+    }
+  }
+
+  void _armQuota() {
+    _quotaLive = true;
+    _quotaMissed = false;
+    _quotaPayStart = score.pay;
+    _quotaSortedStart = score.sorted;
+    _quotaTarget = _quotaTargetForCurrentBoard();
+  }
+
+  int _quotaTargetForCurrentBoard() {
+    if (_board == null) {
+      return EndlessShop.quotaLastBandTarget;
+    }
+    final next = _nextBlind + 1;
+    if (next >= EndlessShop.blinds.length) {
+      return EndlessShop.quotaLastBandTarget;
+    }
+    final remaining = _shopThreshold(next) - score.sorted;
+    return remaining < 1 ? EndlessShop.quotaLastBandTarget : remaining;
+  }
+
+  void _quotaCheckSuccess() {
+    if (!_quotaLive || _quotaMissed) {
+      return;
+    }
+    if (score.sorted - _quotaSortedStart < _quotaTarget) {
+      return;
+    }
+    _quotaPayout();
+  }
+
+  void _quotaSucceedIfLive() {
+    if (!_quotaLive || _quotaMissed) {
+      return;
+    }
+    _quotaPayout();
+  }
+
+  void _quotaPayout() {
+    final earned = score.pay - _quotaPayStart;
+    score.pay = _quotaPayStart + earned * 2;
+    _events.add(QuotaSettledEvent(success: true, segmentPay: earned));
+    _clearQuota();
+  }
+
+  void _quotaForfeit() {
+    if (!_quotaLive || _quotaMissed) {
+      return;
+    }
+    _quotaMissed = true;
+    final earned = score.pay - _quotaPayStart;
+    score.pay = _quotaPayStart;
+    _events.add(QuotaSettledEvent(success: false, segmentPay: earned));
+    _clearQuota();
+  }
+
+  void _clearQuota() {
+    _quotaLive = false;
+    _quotaMissed = false;
+    _quotaPayStart = 0;
+    _quotaSortedStart = 0;
+    _quotaTarget = 0;
   }
 }

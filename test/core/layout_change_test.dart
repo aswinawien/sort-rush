@@ -39,16 +39,17 @@ void main() {
       expect(board.length, 4);
       for (var i = 0; i < board.bins.length; i++) {
         for (var j = i + 1; j < board.bins.length; j++) {
-          expect(board.bins[i].shape != board.bins[j].shape ||
-              board.bins[i].pattern != board.bins[j].pattern, isTrue);
+          expect(
+              board.bins[i].shape != board.bins[j].shape ||
+                  board.bins[i].pattern != board.bins[j].pattern,
+              isTrue);
         }
       }
     });
   });
 
   group('endless layout', () {
-    RunEngine running() =>
-        RunEngine(level: kEndlessShift, seed: 7)..start();
+    RunEngine running() => RunEngine(level: kEndlessShift, seed: 7)..start();
 
     test('opens on two chutes', () {
       final engine = running();

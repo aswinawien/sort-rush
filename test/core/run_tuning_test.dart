@@ -16,7 +16,8 @@ void main() {
     test('with no modifiers it is the level', () {
       for (final level in kCuratedLevels) {
         final tuning = RunTuning.resolve(level: level);
-        expect(tuning.readWindow, level.readWindow, reason: 'level ${level.id}');
+        expect(tuning.readWindow, level.readWindow,
+            reason: 'level ${level.id}');
         expect(tuning.spawnInterval, level.spawnInterval);
         expect(tuning.maxActive, level.maxActive);
         expect(tuning.mistakeLimit, level.mistakeLimit);
@@ -45,6 +46,14 @@ void main() {
         modifiers: const TuningDelta(readWindow: -99),
       );
       expect(tuning.readWindow, RunTuning.readWindowFloor);
+    });
+
+    test('no stack of modifiers can breach the swap interval floor', () {
+      final tuning = RunTuning.resolve(
+        level: kEndlessShift,
+        modifiers: const TuningDelta(swapInterval: -99),
+      );
+      expect(tuning.swapInterval, RunTuning.swapIntervalFloor);
     });
 
     test('no stack of modifiers can breach the spawn interval floor', () {
@@ -105,6 +114,31 @@ void main() {
       );
       expect(tuning.scorePercent, greaterThan(0));
       expect(tuning.payPercent, greaterThan(0));
+    });
+
+    test('combo cap cannot fall below the system floor', () {
+      final tuning = RunTuning.resolve(
+        level: levelById(5),
+        modifiers: const TuningDelta(maxComboTier: -99),
+      );
+      expect(tuning.maxComboTier, RunTuning.minComboTier);
+    });
+
+    test('priority rate extra is clamped to a probability', () {
+      expect(
+        RunTuning.resolve(
+          level: levelById(5),
+          modifiers: const TuningDelta(priorityRate: 4),
+        ).priorityRate,
+        1,
+      );
+      expect(
+        RunTuning.resolve(
+          level: levelById(5),
+          modifiers: const TuningDelta(priorityRate: -1),
+        ).priorityRate,
+        0,
+      );
     });
   });
 

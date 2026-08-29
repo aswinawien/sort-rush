@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/floor_board.dart';
 import '../core/level_config.dart';
 import '../core/levels.dart';
 import '../core/run_summary.dart';
 import 'play_screen.dart';
+import 'score_board.dart';
 import 'theme.dart';
-import 'widgets/scan_lines.dart';
+import 'visual_style.dart';
+import 'widgets/halftone.dart';
 
 /// The run report, printed like a dot-matrix shipping manifest.
 ///
@@ -36,6 +39,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Timer? _timer;
   Timer? _cursorTimer;
   bool _bootstrapped = false;
+  bool _recorded = false;
   bool _complete = false;
   bool _cursorOn = true;
   int _lineIndex = 0;
@@ -45,6 +49,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _recordClocking();
     if (_bootstrapped) {
       return;
     }
@@ -60,6 +65,24 @@ class _ResultsScreenState extends State<ResultsScreen> {
       }
       setState(() => _cursorOn = !_cursorOn);
     });
+  }
+
+  void _recordClocking() {
+    if (_recorded || !widget.summary.endless) {
+      return;
+    }
+    _recorded = true;
+    final board = ScoreBoardScope.maybeOf(context);
+    if (board == null) {
+      return;
+    }
+    board.record(
+      BoardEntry.fromSummary(
+        widget.summary,
+        atMs: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    board.deposit(widget.summary.pay);
   }
 
   @override
@@ -155,75 +178,90 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Widget build(BuildContext context) {
     final summary = widget.summary;
     final next = _nextLevel;
+    final profile = VisualProfile.of(context);
 
     return Scaffold(
       backgroundColor: Tokens.paper,
       body: Stack(
         children: [
-          const Positioned.fill(child: ScanLines(opacity: 0.06)),
+          // Halftone, not scan lines. This surface is paper: the CRT
+          // treatment belongs on `ink`, and washing the manifest with it is
+          // the thing docs/design-spec.md §5.5 rules out by name.
+          Positioned.fill(
+            child: Halftone(opacity: profile.neon ? 0.09 : 0.05),
+          ),
           SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // The manifest scrolls rather than pushing the actions off
-                    // a short screen. Restarting must never become unreachable.
-                    Expanded(
-                      child: IgnorePointer(
-                        ignoring: !_complete,
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 12),
-                              ..._typedLines(),
-                              const SizedBox(height: 24),
-                              if (_complete)
-                                _VerdictStamp(text: summary.verdict),
-                              const SizedBox(height: 24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // The manifest scrolls rather than pushing the actions off
+                  // a short screen. Restarting must never become unreachable.
+                  Expanded(
+                    child: IgnorePointer(
+                      ignoring: !_complete,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            ..._typedLines(),
+                            const SizedBox(height: 24),
+                            if (_complete) _VerdictStamp(text: summary.verdict),
+                            if (_complete) ...[
+                              const SizedBox(height: 18),
+                              // Derived from the run, never invented: a made-up
+                              // reference number would be a prop pretending to
+                              // be a record.
+                              SerialStamp(
+                                text: 'DOC '
+                                    '${summary.levelId.toString().padLeft(2, '0')}'
+                                    '-${summary.score.toString().padLeft(5, '0')}'
+                                    '-${summary.sorted.toString().padLeft(3, '0')}',
+                              ),
                             ],
-                          ),
+                            const SizedBox(height: 24),
+                          ],
                         ),
                       ),
                     ),
-                    if (_complete) ...[
-                      if (summary.passed && next != null)
-                        _ManifestButton(
-                          label: 'NEXT SHIFT',
-                          emphasised: true,
-                          onPressed: () => _replaceWith(next),
-                        ),
-                      if (summary.passed &&
-                          !summary.endless &&
-                          !summary.wagered)
-                        _ManifestButton(
-                          label: 'DOUBLE OR NOTHING',
-                          emphasised: false,
-                          onPressed: () => _replaceWith(
-                            widget.level,
-                            wager: true,
-                          ),
-                        ),
+                  ),
+                  if (_complete) ...[
+                    if (summary.passed && next != null)
                       _ManifestButton(
-                        label: 'CLOCK BACK IN',
-                        emphasised: !summary.passed,
+                        label: 'NEXT SHIFT',
+                        emphasised: true,
+                        onPressed: () => _replaceWith(next),
+                      ),
+                    if (summary.passed && !summary.endless && !summary.wagered)
+                      _ManifestButton(
+                        label: 'DOUBLE OR NOTHING',
+                        emphasised: false,
                         onPressed: () => _replaceWith(
                           widget.level,
-                          seed: summary.endless ? summary.seed : null,
+                          wager: true,
                         ),
                       ),
-                      _ManifestButton(
-                        label: 'HOME',
-                        emphasised: false,
-                        onPressed: () => Navigator.of(context)
-                            .popUntil((route) => route.isFirst),
+                    _ManifestButton(
+                      label: 'CLOCK BACK IN',
+                      emphasised: !summary.passed,
+                      onPressed: () => _replaceWith(
+                        widget.level,
+                        seed: summary.endless ? summary.seed : null,
                       ),
-                    ],
+                    ),
+                    _ManifestButton(
+                      label: 'HOME',
+                      emphasised: false,
+                      onPressed: () => Navigator.of(context)
+                          .popUntil((route) => route.isFirst),
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
+          ),
           if (!_complete)
             Positioned.fill(
               key: const Key('skip-manifest'),
@@ -301,7 +339,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
   void _replaceWith(LevelConfig level, {int? seed, bool wager = false}) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => PlayScreen(level: level, seed: seed, wager: wager),
+        builder: (_) => PlayScreen(
+          level: level,
+          seed: seed,
+          wager: wager,
+          startingPay: widget.summary.endless
+              ? FloorBoard.clampWallet(widget.summary.pay)
+              : 0,
+        ),
       ),
     );
   }

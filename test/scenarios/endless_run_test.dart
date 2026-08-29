@@ -70,9 +70,12 @@ void main() {
     // Play it properly: sort whatever is at the front, correctly.
     var steps = 0;
     while (game.engine.score.sorted < 25 && steps++ < 600) {
-      if (game.engine.isShopping) {
-        game.engine.skipShop();
+      if (find.text('WALK ON').evaluate().isNotEmpty) {
+        await tester.tap(find.text('WALK ON'));
         await tester.pump();
+        // Exit animation, not pumpAndSettle — the Flame loop never settles.
+        await tester.pump(const Duration(milliseconds: 250));
+        continue;
       }
       final package = game.engine.frontMost;
       if (package != null && game.engine.phase == RunPhase.running) {

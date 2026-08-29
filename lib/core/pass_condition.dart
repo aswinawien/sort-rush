@@ -2,10 +2,11 @@ import 'score_state.dart';
 
 /// What clearing a shift requires.
 ///
-/// Levels 1–4 ask only for a count of correct sorts, but the approved table in
-/// `docs/level-spec.md` also asks for a combo tier (level 5), a bounded
-/// misroute count (level 8), and both at once (level 10). A bare integer
-/// cannot express those, so the target is a type.
+/// Levels 1–4, 6, 8–9 ask only for a count of correct sorts. The approved
+/// table also asks for a combo tier (level 5), clutch saves (level 7), and
+/// both volume and combo (level 10). A bare integer cannot express those,
+/// so the target is a type. Level 8 is a plain [SortTarget] — a misroute
+/// cap was considered and rejected.
 ///
 /// Engine-free by construction: this reads [RunScore] and nothing else.
 sealed class PassCondition {

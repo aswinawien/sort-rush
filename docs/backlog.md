@@ -19,7 +19,7 @@ Approved 2026-08-17. Implementation lives in the decision log; this parking spac
 - **Dynamic chutes in endless** — count progression and lane swapping shipped; morphing rejected.
 - **XP bar** — presentation of `P`. Four upgrades that play the game for the player stay rejected.
 - **Depot fiction** — daily seed and a thicker endless report shipped. Quota contracts, hazardous cargo and scanner reveal remain designed-not-built.
-- **Shop / PRIORITY / level 10 / wager** — shipped 2026-08-17. Audio remains gated on Suno terms.
+- **Shop / PRIORITY / level 10 / wager** — shipped 2026-08-17. SFX shipped 2026-08-17. Music waits on Gemini files.
 
 ## Options screen — skip the tutorial, go straight to endless
 

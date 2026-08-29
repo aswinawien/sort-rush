@@ -1,4 +1,6 @@
+import 'board.dart';
 import 'level_config.dart';
+import 'score_state.dart';
 import 'tuning_delta.dart';
 
 /// The numbers the belt is actually running on right now.
@@ -23,6 +25,14 @@ class RunTuning {
     required this.telegraphSeconds,
     required this.scorePercent,
     required this.payPercent,
+    this.priorityRate = 0,
+    this.priorityScorePercent = 0,
+    this.clutchBonus = RunScore.clutchBonus,
+    this.maxComboTier = RunScore.curatedTierCap,
+    this.missScorePenalty = 0,
+    this.blindShift = 0,
+    this.costBump = 0,
+    this.swapInterval = EndlessBoard.swapInterval,
   })  : assert(readWindow >= readWindowFloor, 'read window floor breached'),
         assert(
           spawnInterval >= spawnIntervalFloor,
@@ -33,6 +43,14 @@ class RunTuning {
         assert(
           chaosRate == 0 || telegraphSeconds >= telegraphFloor,
           'chaos without a telegraph is a coin flip, not a skill',
+        ),
+        assert(priorityRate >= 0 && priorityRate <= 1),
+        assert(
+          maxComboTier >= minComboTier && maxComboTier <= RunScore.maxTier,
+        ),
+        assert(
+          swapInterval >= swapIntervalFloor,
+          'swap interval floor breached',
         );
 
   /// The fairness contract from docs/level-spec.md. Below these a first-time
@@ -45,6 +63,13 @@ class RunTuning {
   static const double telegraphFloor = 0.50;
 
   static const int maxActiveCeiling = 5;
+
+  /// Combo must remain a system. A memo may lower the cap; it may not
+  /// delete the multiplier the pitch is built on.
+  static const int minComboTier = 2;
+
+  /// Lane Storm may hurry a swap; it may not spam the board.
+  static const double swapIntervalFloor = 8;
 
   /// A run's numbers for right now.
   ///
@@ -71,7 +96,13 @@ class RunTuning {
     // dial that never bound. The ceiling below is the only cap left.
     final baseMaxActive = curve == null ? level.maxActive : maxActiveCeiling;
 
-    final chaos = _clampDouble(level.chaosRate + modifiers.chaosRate, 0, 1);
+    final chaos = _clampDouble(
+      level.chaosRate +
+          modifiers.chaosRate +
+          (curve == null ? 0 : curve.chaosBonusAt(pressure)),
+      0,
+      1,
+    );
 
     // A level with no chaos is allowed a telegraph of zero — there is nothing
     // to warn about. The moment chaos exists, the warning is floored.
@@ -104,6 +135,26 @@ class RunTuning {
       telegraphSeconds: telegraph,
       scorePercent: _atLeastInt(100 + modifiers.scorePercent, _percentFloor),
       payPercent: _atLeastInt(100 + modifiers.payPercent, _percentFloor),
+      priorityRate: _clampDouble(modifiers.priorityRate, 0, 1),
+      priorityScorePercent: _atLeastInt(modifiers.priorityScorePercent, 0),
+      clutchBonus: _atLeastInt(
+        RunScore.clutchBonus + modifiers.clutchBonus,
+        0,
+      ),
+      // The level's own ceiling, not the absolute one. A memo may lower it
+      // and may never raise it past what the shift allows.
+      maxComboTier: _clampInt(
+        level.comboCap + modifiers.maxComboTier,
+        minComboTier,
+        level.comboCap,
+      ),
+      missScorePenalty: _atLeastInt(modifiers.missScorePenalty, 0),
+      blindShift: _atLeastInt(modifiers.blindShift, 0),
+      costBump: _atLeastInt(modifiers.costBump, 0),
+      swapInterval: _atLeast(
+        EndlessBoard.swapInterval + modifiers.swapInterval,
+        swapIntervalFloor,
+      ),
     );
   }
 
@@ -124,6 +175,27 @@ class RunTuning {
   /// Multipliers as integer percentages, so the money path stays exact.
   final int scorePercent;
   final int payPercent;
+
+  /// Extra PRIORITY spawn chance on top of the level / endless unlock.
+  final double priorityRate;
+
+  /// Extra score percent applied only when the sorted package is PRIORITY.
+  final int priorityScorePercent;
+
+  final int clutchBonus;
+  final int maxComboTier;
+
+  /// How many current-tier sorts a miss deducts. Zero leaves score alone.
+  final int missScorePenalty;
+
+  /// Extra packages before later shop blinds. Ignored on the first board.
+  final int blindShift;
+
+  /// Extra added to `blindIndex × costBumpPerBlind`.
+  final int costBump;
+
+  /// Seconds between endless lane-swap attempts. Curated levels never swap.
+  final double swapInterval;
 
   static double _atLeast(double value, double floor) =>
       value < floor ? floor : value;
